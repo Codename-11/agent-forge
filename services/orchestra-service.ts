@@ -312,25 +312,39 @@ export async function disbandTeam(teamId: string): Promise<ServiceResult<{ team:
     completedAt: new Date().toISOString(),
   })
 
-  // Optional: save findings to claude-mem
+  // Optional: save session summary to claude-mem
   try {
     const messages = getMessages(teamId)
     const agentMessages = messages.filter(m => m.from !== 'orchestra' && m.from !== 'user')
     if (agentMessages.length > 0) {
-      const summary = agentMessages.map(m => `${m.from}: ${m.content}`).join('\n\n')
       const duration = updated!.completedAt && team.createdAt
         ? Math.round((new Date(updated!.completedAt).getTime() - new Date(team.createdAt).getTime()) / 60000)
         : 0
+
+      // Build a concise summary: first message (plan) + last 2 messages (conclusion) per agent
+      const agents = [...new Set(agentMessages.map(m => m.from))]
+      const summaryParts = agents.map(agent => {
+        const msgs = agentMessages.filter(m => m.from === agent)
+        const first = msgs[0]?.content.slice(0, 300) || ''
+        const last = msgs[msgs.length - 1]?.content.slice(0, 500) || ''
+        return `${agent} (${msgs.length} msgs):\n  Start: ${first}\n  Eind: ${last}`
+      })
+
+      // Detect the working directory as project hint
+      const cwdMatch = team.description.match(/workingDirectory[:\s]*([^\s,}]+)/)
+      const project = process.env.ENSEMBLE_PROJECT
+        || (cwdMatch ? cwdMatch[1].split('/').pop() : undefined)
+        || 'ensemble'
 
       fetch('http://localhost:37777/api/observations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: `Team "${team.name}" Complete`,
-          subtitle: `${team.agents.map(a => a.name).join(' + ')} — ${team.description.slice(0, 100)}`,
+          title: `Collab: ${team.description.slice(0, 80)}`,
+          subtitle: `${agents.join(' + ')} — ${duration}min, ${agentMessages.length} messages`,
           type: 'discovery',
-          narrative: `Orchestra team "${team.name}": ${team.agents.map(a => `${a.name} (${a.program})`).join(', ')}. Duration: ${duration}min. ${agentMessages.length} messages.\n\n${summary.slice(0, 3000)}`,
-          project: 'orchestra',
+          narrative: `Team "${team.name}" (${duration}min):\nTask: ${team.description.slice(0, 200)}\n\n${summaryParts.join('\n\n')}`,
+          project,
         }),
       }).catch(() => {})
     }
