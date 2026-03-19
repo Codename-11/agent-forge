@@ -49,8 +49,9 @@ const COMPLETION_PATTERNS = [
   /\bklaar\b/i,
   /\btot de volgende\b/i,
 ]
-const TELEGRAM_BOT_TOKEN = '***REDACTED***:AAEnd0GTwLhMXVacFFfLCaNniVh_JmdoB4U'
-const TELEGRAM_CHAT_ID = '***REDACTED***'
+// Telegram notifications: set both env vars to enable, omit to disable
+const TELEGRAM_BOT_TOKEN = process.env.ENSEMBLE_TELEGRAM_BOT_TOKEN || ''
+const TELEGRAM_CHAT_ID = process.env.ENSEMBLE_TELEGRAM_CHAT_ID || ''
 
 class OrchestraService {
   private readonly disbandingTeams = new Set<string>()
@@ -158,25 +159,20 @@ function escMd(s: string): string {
 }
 
 function sendTelegramSummary(params: {
-  teamName: string
   task: string
   duration: string
   messageCount: number
-  agentSummaries: { name: string; msgs: number; tokens: string; lastMsg: string }[]
+  agentSummaries: { name: string; msgs: number; tokens: string }[]
 }): void {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return
+
   const agents = params.agentSummaries
-  const agentLines = agents.map(a => {
-    const last = a.lastMsg.slice(0, 150).replace(/\n/g, ' ')
-    return `*${escMd(a.name)}* \\(${a.msgs} msgs, ${escMd(a.tokens)}\\)\n_${escMd(last)}_`
-  })
+  const agentLine = agents.map(a => `${escMd(a.name)} \\(${a.msgs}, ${escMd(a.tokens)}\\)`).join(' \\+ ')
 
   const text = [
-    `\u2728 *Collab afgerond*`,
-    ``,
-    `\u{1F4CB} ${escMd(params.task.slice(0, 120))}`,
-    `\u23F1 ${escMd(params.duration)} \\| ${params.messageCount} berichten`,
-    ``,
-    ...agentLines,
+    `\u2728 *Collab klaar* \u2014 ${escMd(params.duration)}, ${params.messageCount} msgs`,
+    escMd(params.task.slice(0, 100)),
+    agentLine,
   ].join('\n')
 
   const curl = spawn(
@@ -780,15 +776,14 @@ export async function disbandTeam(teamId: string): Promise<ServiceResult<{ team:
       })
 
       sendTelegramSummary({
-        teamName: team.name,
         task: team.description || 'unknown',
         duration,
         messageCount: agentMessages.length,
-        agentSummaries: agents.map(agent => {
-          const msgs = agentMessages.filter(m => m.from === agent)
-          const last = msgs[msgs.length - 1]?.content || ''
-          return { name: agent, msgs: msgs.length, tokens: tokenUsageMap[agent] || 'unknown', lastMsg: last }
-        }),
+        agentSummaries: agents.map(agent => ({
+          name: agent,
+          msgs: agentMessages.filter(m => m.from === agent).length,
+          tokens: tokenUsageMap[agent] || '?',
+        })),
       })
 
       // Detect the working directory as project hint
