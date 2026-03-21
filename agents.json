@@ -29,10 +29,19 @@
   "gemini": {
     "name": "gemini",
     "command": "gemini",
-    "flags": [],
-    "readyMarker": "❯",
+    "flags": ["--yolo"],
+    "readyMarker": "Type your message",
     "inputMethod": "sendKeys",
     "color": "yellow",
     "icon": "★"
+  },
+  "opencode": {
+    "name": "opencode",
+    "command": "opencode",
+    "flags": [],
+    "readyMarker": "Ask anything",
+    "inputMethod": "sendKeys",
+    "color": "cyan",
+    "icon": "▣"
   }
 }

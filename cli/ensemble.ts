@@ -3,6 +3,7 @@
  * ensemble — CLI entrypoint
  *
  * Usage:
+ *   ensemble run "task" [--agents x,y]      Run headless (no Claude Code needed)
  *   ensemble monitor [--latest | team-id]   Watch team collaboration live
  *   ensemble teams                          List all teams
  *   ensemble steer <team-id> <message>      Send a message to a team
@@ -10,7 +11,8 @@
  */
 
 import http from 'http'
-import { execFileSync } from 'child_process'
+import fs from 'fs'
+import { execFileSync, spawn } from 'child_process'
 import { fileURLToPath } from 'url'
 import path from 'path'
 
@@ -136,6 +138,104 @@ async function cmdSteer(teamId: string, message: string) {
   }
 }
 
+async function cmdRun(task: string, agentFlags: string | undefined, timeoutSec: number) {
+  const __filename = fileURLToPath(import.meta.url)
+  const repoDir = path.resolve(path.dirname(__filename), '..')
+  const cwd = process.cwd()
+
+  // 1. Ensure server is running
+  let serverProc: ReturnType<typeof spawn> | null = null
+  try {
+    await apiGet('/api/v1/health')
+  } catch {
+    process.stderr.write(`  ${c.dim}Starting server...${c.r}\n`)
+    serverProc = spawn('tsx', ['server.ts'], {
+      cwd: repoDir, stdio: 'ignore', detached: true,
+    })
+    serverProc.unref()
+    for (let i = 0; i < 10; i++) {
+      await new Promise(r => setTimeout(r, 1000))
+      try { await apiGet('/api/v1/health'); break } catch { /* waiting */ }
+    }
+    try { await apiGet('/api/v1/health') } catch {
+      console.error(`  ${c.red}Server failed to start${c.r}`)
+      process.exit(1)
+    }
+  }
+
+  // 2. Parse agents (default: codex + claude)
+  const agentNames = agentFlags
+    ? agentFlags.split(',').map(s => s.trim())
+    : ['codex', 'claude code']
+  const agents = agentNames.map((name, i) => ({
+    program: name,
+    role: i === 0 ? 'lead' : 'worker',
+    hostId: 'local',
+  }))
+
+  // 3. Create team
+  const teamName = `run-${Date.now()}`
+  const result = await apiPost('/api/ensemble/teams', {
+    name: teamName,
+    description: task,
+    agents,
+    feedMode: 'live',
+    workingDirectory: cwd,
+  }) as { team: { id: string } }
+
+  const teamId = result.team.id
+  const messagesFile = `/tmp/ensemble/${teamId}/messages.jsonl`
+
+  console.log(`\n  ${c.bold}${c.bWhite}◈ ensemble run${c.r}`)
+  console.log(`  ${c.dim}${task.slice(0, 100)}${c.r}`)
+  console.log(`  ${c.bGreen}●${c.r} Team ${c.dim}${teamId.slice(0, 8)}${c.r} created with ${agentNames.join(' + ')}`)
+  console.log(`  ${c.dim}Timeout: ${timeoutSec}s${c.r}\n`)
+
+  // 4. Tail messages until completion or timeout
+  const deadline = Date.now() + timeoutSec * 1000
+  let lastLine = 0
+  const donePatterns = [/\bdone\b/i, /\bcomplete(?:d)?\b/i, /\bfinished\b/i, /\bafgerond\b/i]
+
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 3000))
+
+    if (!fs.existsSync(messagesFile)) continue
+    const lines = fs.readFileSync(messagesFile, 'utf-8').trim().split('\n').filter(Boolean)
+    if (lines.length <= lastLine) continue
+
+    for (let i = lastLine; i < lines.length; i++) {
+      try {
+        const msg = JSON.parse(lines[i])
+        const from = msg.from || '?'
+        const content = (msg.content || '').slice(0, 200)
+        console.log(`  ${c.cyan}${from}${c.r}: ${content}`)
+      } catch { /* skip */ }
+    }
+    lastLine = lines.length
+
+    // Check team status
+    try {
+      const team = await apiGet<{ team: { status: string } }>(`/api/ensemble/teams/${teamId}`)
+      if (team.team.status === 'disbanded') {
+        console.log(`\n  ${c.bGreen}✓${c.r} Team finished (disbanded)`)
+        process.exit(0)
+      }
+    } catch { /* ignore */ }
+
+    // Check last few messages for done signals
+    const recentContent = lines.slice(-3).map(l => {
+      try { return JSON.parse(l).content || '' } catch { return '' }
+    }).join(' ')
+    if (donePatterns.some(p => p.test(recentContent))) {
+      console.log(`\n  ${c.bGreen}✓${c.r} Task appears complete`)
+      process.exit(0)
+    }
+  }
+
+  console.log(`\n  ${c.yellow}⏱${c.r} Timeout reached (${timeoutSec}s)`)
+  process.exit(124)
+}
+
 // ─── Main ───
 
 const [cmd, ...args] = process.argv.slice(2)
@@ -160,6 +260,26 @@ switch (cmd) {
   case 'health':
     await cmdStatus()
     break
+  case 'run': {
+    const runArgs = [...args]
+    let agentList: string | undefined
+    let timeout = 600
+    // Parse --agents and --timeout flags
+    for (let i = 0; i < runArgs.length; i++) {
+      if (runArgs[i] === '--agents' && runArgs[i + 1]) {
+        agentList = runArgs.splice(i, 2)[1]; i--
+      } else if (runArgs[i] === '--timeout' && runArgs[i + 1]) {
+        timeout = parseInt(runArgs.splice(i, 2)[1], 10); i--
+      }
+    }
+    const taskDesc = runArgs.join(' ')
+    if (!taskDesc) {
+      console.log(`Usage: ensemble run "task description" [--agents codex,claude] [--timeout 600]`)
+      process.exit(1)
+    }
+    await cmdRun(taskDesc, agentList, timeout)
+    break
+  }
   case 'steer':
   case 'send':
     if (args.length < 2) {
@@ -176,6 +296,7 @@ switch (cmd) {
   ${c.bold}${c.bWhite}◈ ensemble${c.r} — multi-agent collaboration engine
 
   ${c.bold}Commands:${c.r}
+    ${c.bWhite}run${c.r} "task" [--agents ..]   Run headless (no Claude Code needed)
     ${c.bWhite}monitor${c.r} [--latest | id]   Watch team collaboration live
     ${c.bWhite}teams${c.r}                      List all teams
     ${c.bWhite}steer${c.r} <id> <message>       Send steering message to team
@@ -189,6 +310,8 @@ switch (cmd) {
     ${c.bWhite}q${c.r}       Quit
 
   ${c.bold}Examples:${c.r}
+    ${c.dim}ensemble run "refactor auth module" --agents gemini,claude${c.r}
+    ${c.dim}ensemble run "fix all lint errors" --timeout 300${c.r}
     ${c.dim}ensemble monitor --latest${c.r}
     ${c.dim}ensemble steer abc123 "focus on security review"${c.r}
     ${c.dim}ensemble teams${c.r}
