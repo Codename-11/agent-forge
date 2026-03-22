@@ -95,10 +95,19 @@ Any CLI tool that reads from stdin and writes to stdout can be an ensemble agent
 
 The agent must support `team-say` and `team-read` shell commands in its PATH for inter-agent communication.
 
+### Supported agents
+
+| Agent | Status | Notes |
+|---|---|---|
+| **Claude Code** | Fully tested | Reliable, supports `sendKeys` input |
+| **Codex** | Fully tested | Requires `pasteFromFile` input and `--full-auto` flag |
+| **Gemini CLI** | Experimental | Uses `pasteFromFile` with `--yolo` flag. May become unresponsive due to free-tier rate limits or Gemini's internal agent delegation. If Gemini hits a rate limit, an interactive dialog appears in the TUI that blocks further message processing. Works best with a paid API key configured via `/auth`. |
+| **Aider** | Untested | Basic config included in `agents.json` |
+
 ### Input methods
 
 - **`sendKeys`** — Types the prompt character by character into the tmux pane. Works with most agents. Simpler but slower for large prompts.
-- **`pasteFromFile`** — Writes the prompt to a temp file and pastes it via tmux buffer. Faster for large prompts. Codex requires this method.
+- **`pasteFromFile`** — Writes the prompt to a temp file and pastes it via tmux buffer. Faster for large prompts. Required by Codex and Gemini CLI.
 
 ---
 

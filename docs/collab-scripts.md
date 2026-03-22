@@ -17,12 +17,16 @@ All scripts live in `scripts/` and use `collab-paths.sh` for consistent path res
 **All-in-one team launcher.** Creates team, starts bridge, opens monitor.
 
 ```bash
-./scripts/collab-launch.sh <working-directory> <task-description>
+./scripts/collab-launch.sh <working-directory> <task-description> [agents]
 ```
 
-Example:
+Examples:
 ```bash
+# Default: codex (lead) + claude (worker)
 ./scripts/collab-launch.sh ~/myproject "Review all API endpoints for security issues"
+
+# Custom agents: specify comma-separated list (first = lead)
+./scripts/collab-launch.sh ~/myproject "Security audit" codex,claude,gemini
 ```
 
 What it does:

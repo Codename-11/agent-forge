@@ -134,7 +134,11 @@ fi
 
 # ─── Output ───
 echo ""
-echo -e "  ${BD}${G}Team is live!${R} ${W}codex-1${R} + ${W}claude-2${R} are collaborating."
+# Build dynamic agent list for display
+AGENT_NAMES=$(curl -sf "$API/api/ensemble/teams/$TEAM_ID" 2>/dev/null \
+  | python3 -c "import json,sys; t=json.load(sys.stdin); print(' + '.join(a['name'] for a in t['team']['agents']))" 2>/dev/null \
+  || echo "agents")
+echo -e "  ${BD}${G}Team is live!${R} ${W}${AGENT_NAMES}${R} are collaborating."
 echo ""
 if [ "$MONITOR_MODE" = "split" ]; then
   echo -e "  ${D}┌─ Monitor (right panel) ───────────────┐${R}"

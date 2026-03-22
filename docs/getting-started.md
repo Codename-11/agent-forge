@@ -43,11 +43,14 @@ npm install -g @anthropic-ai/claude-code
 # Codex (OpenAI)
 npm install -g @openai/codex
 
-# Aider (Python-based) — experimental
+# Gemini CLI (Google) — experimental
+npm install -g @anthropic-ai/gemini-cli  # or follow https://github.com/anthropics/gemini-cli
+
+# Aider (Python-based) — untested
 pip install aider-chat
 ```
 
-> **Tested combination:** Claude Code + Codex is the primary tested setup. Other agent combinations (Aider, Gemini) are experimental and may require tweaking `agents.json`.
+> **Tested combinations:** Claude Code + Codex is fully tested and production-ready. Gemini CLI can join teams and communicate, but is experimental — it may become unresponsive due to free-tier rate limits or internal agent delegation issues. Aider support is untested.
 
 Each agent CLI manages its own API keys. Make sure they're configured before running ensemble:
 
@@ -55,6 +58,7 @@ Each agent CLI manages its own API keys. Make sure they're configured before run
 |---|---|---|
 | **Claude Code** | Run `claude auth login` (opens browser) or set `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/) |
 | **Codex** | Set `OPENAI_API_KEY` in your shell profile | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
+| **Gemini CLI** | Run `gemini /auth` to configure API key, or use free tier (rate-limited) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | **Aider** | Set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` | See links above |
 
 ```bash

@@ -2,7 +2,7 @@
 
 **Multi-agent collaboration engine** — AI agents that work as one.
 
-Ensemble orchestrates multiple AI agents (Claude Code, Codex, Aider) into collaborative teams that communicate, share findings, and solve problems together in real time. Built on tmux-based session management for transparent, observable agent interactions.
+Ensemble orchestrates multiple AI agents (Claude Code, Codex, Gemini, Aider) into collaborative teams that communicate, share findings, and solve problems together in real time. Built on tmux-based session management for transparent, observable agent interactions.
 
 > **Status:** Experimental developer tool. macOS and Linux only.
 
@@ -22,9 +22,9 @@ Ensemble orchestrates multiple AI agents (Claude Code, Codex, Aider) into collab
 ### Prerequisites
 
 - Node.js 18+, Python 3.6+, [tmux](https://github.com/tmux/tmux), curl
-- At least one AI agent CLI installed (`claude`, `codex`, or `aider`)
+- At least one AI agent CLI installed (`claude`, `codex`, `gemini`, or `aider`)
 
-> **Note:** Currently only **Claude Code + Codex** is actively tested. Aider and Gemini support is experimental.
+> **Agent support:** **Claude Code + Codex** is fully tested and production-ready. **Gemini CLI** is supported but experimental — it can join teams and communicate, but may become unresponsive due to rate limits or internal agent delegation in Gemini's TUI. **Aider** support is untested.
 
 ### Install & Run
 
