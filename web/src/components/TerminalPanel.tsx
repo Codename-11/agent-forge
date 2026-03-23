@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Terminal as XTerminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
-import { X, Send, Loader2, CheckCircle2, AlertCircle, Square } from 'lucide-react'
+import { X, Send, Loader2, CheckCircle2, AlertCircle, Square, Maximize2, Minimize2 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import '@xterm/xterm/css/xterm.css'
 
@@ -18,12 +18,12 @@ export function TerminalPanel({ sessionName, agentName, onClose }: TerminalPanel
   const termContainerRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<XTerminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
-  const eventSourceRef = useRef<EventSource | null>(null)
-  const lastOutputRef = useRef('')
+  const wsRef = useRef<WebSocket | null>(null)
 
   const [sseConnected, setSseConnected] = useState(false)
   const [inputText, setInputText] = useState('')
   const [sendState, setSendState] = useState<SendState>('idle')
+  const [fullScreen, setFullScreen] = useState(false)
 
   // Initialize xterm
   useEffect(() => {
@@ -62,7 +62,13 @@ export function TerminalPanel({ sessionName, agentName, onClose }: TerminalPanel
     fitAddonRef.current = fitAddon
 
     const handleResize = () => {
-      try { fitAddon.fit() } catch { /* ignore */ }
+      try {
+        fitAddon.fit()
+        const ws = wsRef.current
+        if (ws?.readyState === WebSocket.OPEN && terminal) {
+          ws.send(JSON.stringify({ type: 'resize', cols: terminal.cols, rows: terminal.rows }))
+        }
+      } catch { /* ignore */ }
     }
     window.addEventListener('resize', handleResize)
 
@@ -80,80 +86,61 @@ export function TerminalPanel({ sessionName, agentName, onClose }: TerminalPanel
     }
   }, [])
 
-  // Connect SSE stream
+  // Re-fit terminal when fullScreen changes
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      try { fitAddonRef.current?.fit() } catch { /* ignore */ }
+    })
+  }, [fullScreen])
+
+  // Connect via WebSocket instead of SSE
   useEffect(() => {
     const terminal = terminalRef.current
     if (!terminal) return
 
-    lastOutputRef.current = ''
     terminal.reset()
 
-    const es = new EventSource(`/api/ensemble/sessions/${encodeURIComponent(sessionName)}/stream`)
-    eventSourceRef.current = es
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsUrl = `${protocol}//${window.location.host}/api/ensemble/sessions/${encodeURIComponent(sessionName)}/ws`
 
-    es.addEventListener('open', () => {
-      setSseConnected(true)
-    })
+    const ws = new WebSocket(wsUrl)
+    ws.binaryType = 'arraybuffer'
 
-    es.addEventListener('output', (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data as string) as { output?: string }
-        const newOutput = data.output ?? ''
+    ws.onopen = () => setSseConnected(true)
 
-        // Server already filters by meaningful content changes (ANSI-stripped comparison).
-        // We just need to render what we receive.
-        // On first event: write the full snapshot.
-        // On subsequent events: clear and rewrite (server sends at 2s intervals,
-        // only when text content changed, so this is infrequent).
-        terminal.clear()
-        terminal.write(newOutput)
-        lastOutputRef.current = newOutput
-      } catch {
-        // ignore parse errors
-      }
-    })
+    ws.onmessage = (event) => {
+      // Write raw PTY data directly to xterm — no parsing, no clearing, no diffing
+      const data = typeof event.data === 'string' ? event.data : new TextDecoder().decode(event.data)
+      terminal.write(data)
+    }
 
-    es.addEventListener('error', () => {
-      setSseConnected(false)
-    })
+    ws.onclose = () => setSseConnected(false)
+    ws.onerror = () => setSseConnected(false)
+
+    wsRef.current = ws
 
     return () => {
-      es.close()
-      eventSourceRef.current = null
+      ws.close()
+      wsRef.current = null
       setSseConnected(false)
     }
   }, [sessionName])
 
-  // Send input to the session
+  // Send input via WebSocket
   const handleSendInput = useCallback(async (text: string, interrupt = false) => {
-    if (sendState === 'sending') return
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
 
-    setSendState('sending')
-    try {
-      const body = interrupt
-        ? { text: 'C-c', literal: false, enter: false }
-        : { text, enter: true, literal: true }
-
-      const res = await fetch(`/api/ensemble/sessions/${encodeURIComponent(sessionName)}/input`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-
-      if (!res.ok) {
-        setSendState('error')
-        setTimeout(() => setSendState('idle'), 2000)
-        return
-      }
-
-      if (!interrupt) setInputText('')
-      setSendState('sent')
-      setTimeout(() => setSendState('idle'), 1200)
-    } catch {
-      setSendState('error')
-      setTimeout(() => setSendState('idle'), 2000)
+    if (interrupt) {
+      ws.send(JSON.stringify({ type: 'input', text: '\x03' }))  // Ctrl+C
+    } else {
+      ws.send(JSON.stringify({ type: 'input', text: text + '\r' }))
     }
-  }, [sessionName, sendState])
+
+    if (!interrupt) setInputText('')
+    setSendState('sent')
+    setTimeout(() => setSendState('idle'), 1200)
+  }, [])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -172,7 +159,10 @@ export function TerminalPanel({ sessionName, agentName, onClose }: TerminalPanel
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className={cn(
+      'flex flex-col overflow-hidden',
+      fullScreen ? 'fixed inset-0 z-50' : 'h-full',
+    )}>
       {/* Header */}
       <div className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-3 py-2">
         <span
@@ -182,17 +172,26 @@ export function TerminalPanel({ sessionName, agentName, onClose }: TerminalPanel
               ? 'bg-emerald-500 animate-[pulse-dot_2s_ease-in-out_infinite]'
               : 'bg-muted-foreground/40',
           )}
-          title={sseConnected ? 'Streaming' : 'Connecting...'}
+          title={sseConnected ? 'Connected' : 'Connecting...'}
         />
         <span className="text-xs font-medium text-foreground">{agentName}</span>
         <span className="text-[0.65rem] text-muted-foreground">terminal</span>
-        <button
-          onClick={onClose}
-          className="ml-auto inline-flex items-center justify-center rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          title="Close terminal"
-        >
-          <X className="size-4" />
-        </button>
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            onClick={() => setFullScreen(!fullScreen)}
+            className="inline-flex items-center justify-center rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title={fullScreen ? 'Minimize' : 'Maximize'}
+          >
+            {fullScreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+          </button>
+          <button
+            onClick={onClose}
+            className="inline-flex items-center justify-center rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title="Close terminal"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
       </div>
 
       {/* Terminal area */}

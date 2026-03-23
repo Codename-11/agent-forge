@@ -290,7 +290,7 @@ export function MessageFeed({ messages, agents }: MessageFeedProps) {
                     {!grouped && (
                       <div className="mb-1 flex items-center gap-2 pl-3">
                         {agent ? (
-                          <AgentBadge name={agent.name} program={agent.program} />
+                          <AgentBadge name={agent.name} program={agent.program} role={agent.role} showRole />
                         ) : (
                           <span className="text-xs font-semibold text-foreground">{shortAgentName(msg.from, agents)}</span>
                         )}

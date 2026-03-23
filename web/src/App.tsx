@@ -305,7 +305,7 @@ export function App() {
                             <div
                               key={agent.name}
                               className="flex items-center gap-1"
-                              title={`${agent.name} (${agent.program})`}
+                              title={`${agent.name} (${agent.program}) — ${agent.role === 'lead' ? 'Lead' : 'Worker'}`}
                             >
                               <span
                                 className="inline-block size-2 rounded-full"
@@ -314,6 +314,11 @@ export function App() {
                               <span className="text-[10px] text-muted-foreground">
                                 {agent.name}
                               </span>
+                              {agent.role === 'lead' && (
+                                <span className="text-[9px] text-muted-foreground/50">
+                                  (Lead)
+                                </span>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -405,7 +410,7 @@ export function App() {
                               key={agent.name}
                               className="inline-block size-1.5 rounded-full"
                               style={{ backgroundColor: agentColor(agent) }}
-                              title={`${agent.name} (${agent.program})`}
+                              title={`${agent.name} (${agent.program}) — ${agent.role === 'lead' ? 'Lead' : 'Worker'}`}
                             />
                           ))}
                         </div>

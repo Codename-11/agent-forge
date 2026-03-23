@@ -366,6 +366,15 @@ export class PtySessionManager implements AgentRuntime {
     return result
   }
 
+  /** Subscribe to live PTY data for a session. Returns an unsubscribe function. */
+  addDataListener(name: string, callback: (data: string) => void): (() => void) | null {
+    const session = this.sessions.get(name)
+    if (!session) return null
+
+    const disposable = session.pty.onData(callback)
+    return () => disposable.dispose()
+  }
+
   /** Get a session (for testing or internal use) */
   getSession(name: string): PtySession | undefined {
     return this.sessions.get(name)

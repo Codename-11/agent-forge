@@ -18,29 +18,42 @@ function getAgentClasses(program: string): { dot: string; text: string } {
 interface AgentBadgeProps {
   name: string
   program: string
-  size?: 'sm' | 'md'
+  role?: string
+  showRole?: boolean
+  size?: 'sm' | 'md' | 'lg'
 }
 
-export function AgentBadge({ name, program, size = 'sm' }: AgentBadgeProps) {
+export function AgentBadge({ name, program, role, showRole = false, size = 'sm' }: AgentBadgeProps) {
   const colors = getAgentClasses(program)
+  const isLead = role === 'lead'
   return (
     <span className="inline-flex items-center gap-1.5">
       <span
         className={cn(
           'inline-block shrink-0 rounded-full',
-          size === 'sm' ? 'size-2' : 'size-2.5',
+          size === 'sm' ? 'size-2' : size === 'md' ? 'size-2.5' : 'size-3',
           colors.dot,
         )}
       />
       <span
         className={cn(
           'font-medium',
-          size === 'sm' ? 'text-xs' : 'text-sm',
+          size === 'sm' ? 'text-xs' : size === 'md' ? 'text-sm' : 'text-base',
           colors.text,
         )}
       >
         {name}
       </span>
+      {showRole && isLead && (
+        <span
+          className={cn(
+            'font-normal text-muted-foreground/60',
+            size === 'sm' ? 'text-[0.6rem]' : size === 'md' ? 'text-[0.65rem]' : 'text-xs',
+          )}
+        >
+          (Lead)
+        </span>
+      )}
     </span>
   )
 }

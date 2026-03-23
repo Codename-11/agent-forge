@@ -98,19 +98,37 @@ export function getTeam(id: string): EnsembleTeam | undefined {
 export function createTeam(request: CreateTeamRequest): EnsembleTeam {
   return withTeamsLock(() => {
     const teams = readTeamsFile()
+
+    // Count program occurrences to decide if number suffix is needed
+    const programCounts: Record<string, number> = {}
+    for (const a of request.agents) {
+      const base = a.program.toLowerCase().replace(/\s+/g, '-').split('-')[0]
+      programCounts[base] = (programCounts[base] || 0) + 1
+    }
+
+    // Track per-program numbering
+    const programIndex: Record<string, number> = {}
+
     const team: EnsembleTeam = {
       id: uuidv4(),
       name: request.name,
       description: request.description,
       status: 'forming',
-      agents: request.agents.map((a, i) => ({
-        agentId: '',
-        name: `${a.program.toLowerCase().replace(/\s+/g, '-').split('-')[0]}-${i + 1}`,
-        program: a.program,
-        role: a.role || (i === 0 ? 'lead' : 'member'),
-        hostId: a.hostId || '',
-        status: 'spawning' as const,
-      })),
+      agents: request.agents.map((a, i) => {
+        const base = a.program.toLowerCase().replace(/\s+/g, '-').split('-')[0]
+        const needsNumber = programCounts[base] > 1
+        programIndex[base] = (programIndex[base] || 0) + 1
+        const name = needsNumber ? `${base}-${programIndex[base]}` : base
+
+        return {
+          agentId: '',
+          name,
+          program: a.program,
+          role: a.role || (i === 0 ? 'lead' : 'worker'),
+          hostId: a.hostId || '',
+          status: 'spawning' as const,
+        }
+      }),
       createdBy: getCreatedBy(),
       createdAt: new Date().toISOString(),
       feedMode: request.feedMode || 'live',

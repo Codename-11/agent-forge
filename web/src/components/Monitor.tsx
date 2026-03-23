@@ -310,7 +310,7 @@ export function Monitor({ team, messages, connected, error, onSend, onDisband, o
                 >
                   {/* Row 1: badge + status */}
                   <div className="flex items-center justify-between gap-1">
-                    <AgentBadge name={agent.name} program={agent.program} size="md" />
+                    <AgentBadge name={agent.name} program={agent.program} role={agent.role} showRole size="md" />
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span
                         className={cn(
@@ -327,9 +327,9 @@ export function Monitor({ team, messages, connected, error, onSend, onDisband, o
                     </div>
                   </div>
 
-                  {/* Row 2: program label */}
+                  {/* Row 2: role + program label */}
                   <span className="pl-4 text-[0.65rem] text-muted-foreground/50">
-                    {agent.program}
+                    {agent.role === 'lead' ? 'Lead' : 'Worker'} · {agent.program}
                   </span>
 
                   {/* Row 3: last message preview */}

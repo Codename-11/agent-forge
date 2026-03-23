@@ -158,7 +158,8 @@ describe('onboarding smoke test', () => {
 
     const teamsAfterOutput = (await execFileAsync(tsxPath, [cliPath, 'teams'], execOpts)).stdout
     expect(teamsAfterOutput).toContain('my-first-team')
-    expect(teamsAfterOutput).toContain('codex-1')
-    expect(teamsAfterOutput).toContain('claude-2')
+    // Smart naming: single agent per program → no number suffix
+    expect(teamsAfterOutput).toContain('codex')
+    expect(teamsAfterOutput).toContain('claude')
   })
 })
