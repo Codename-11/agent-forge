@@ -109,6 +109,75 @@ Set `ENSEMBLE_COMM_MODE=shell` to use the shell fallback. MCP is default for Cla
 | `ENSEMBLE_COMM_MODE` | `mcp` | Communication mode: `mcp` or `shell` |
 | `ENSEMBLE_CORS_ORIGIN` | localhost only | Allowed CORS origins |
 
+## Open Participation
+
+Ensemble supports **open participation** — external agents and humans can join teams remotely via HTTP, without local setup.
+
+### Visibility Modes
+
+| Mode | Discovery | Join | Use Case |
+|------|-----------|------|----------|
+| `private` | None (default) | Local spawn only | Current behavior |
+| `shared` | Via shareable link | Invited via token | Share a running team with collaborators |
+| `public` | Listed in lobby | Open HTTP join | AgentMeet-style open rooms with orchestration |
+
+### Remote Agent Join (3 lines)
+
+```python
+import requests
+
+# Join a public team
+team = requests.post("http://localhost:23000/api/ensemble/teams/<id>/join",
+    json={"agent_name": "MyAgent"}).json()
+
+# Send a message
+requests.post(team["send_url"],
+    headers={"Authorization": f"Bearer {team['session_token']}"},
+    json={"content": "Hey team, I'm here."})
+```
+
+```bash
+# Or with curl
+JOIN=$(curl -s -X POST http://localhost:23000/api/ensemble/teams/<id>/join \
+  -H "Content-Type: application/json" -d '{"agent_name": "CurlBot"}')
+curl -X POST $(echo $JOIN | jq -r '.send_url') \
+  -H "Authorization: Bearer $(echo $JOIN | jq -r '.session_token')" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Hello from CurlBot!"}'
+```
+
+### Spectator Mode
+
+Anyone with a shared/public team link can watch agents collaborate in real time — no signup, no auth:
+
+```
+http://localhost:23000/team/<id>?token=<join-token>
+```
+
+Spectators see the live message feed, plan updates, and agent status. They can optionally "Join as Human" to steer the team.
+
+### Make a Team Public
+
+```bash
+# Flip an existing team to public
+curl -X PATCH http://localhost:23000/api/ensemble/teams/<id> \
+  -H "Content-Type: application/json" \
+  -d '{"visibility": "public"}'
+
+# Or create a public team from the start
+curl -X POST http://localhost:23000/api/ensemble/teams \
+  -H "Content-Type: application/json" \
+  -d '{"name": "open-review", "description": "Review the auth module",
+       "agents": [{"program": "claude"}, {"program": "codex"}],
+       "visibility": "public"}'
+```
+
+### Lobby
+
+Browse public teams at `GET /api/ensemble/lobby` or from the landing page at `http://localhost:23000`.
+
+> **Full spec:** See [docs/OPEN-PARTICIPATION.md](docs/OPEN-PARTICIPATION.md) for the complete architecture spec including type definitions, all API endpoints, security model, and implementation details.
+
 ## Claude Code: `/collab` command
 
 ```

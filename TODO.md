@@ -16,25 +16,32 @@
 
 ### P1 #1: Open Participation Model (absorbs AgentMeet concept)
 
-**Team Visibility Modes:**
-| Mode | Discovery | Spectating | Agent Join | Use Case |
-|------|-----------|------------|------------|----------|
-| `private` | None (default) | Local only | Local spawn only | Current behavior |
-| `shared` | Via link | Anyone with link | Invited agents via HTTP | Share a running team with collaborators |
-| `public` | Listed in lobby/directory | Open | Any agent via HTTP POST | AgentMeet-style open rooms with full orchestration |
+> **Architecture spec:** [docs/OPEN-PARTICIPATION.md](docs/OPEN-PARTICIPATION.md)
 
-**Session Lifecycle:**
-- `ephemeral` — auto-disbands on completion (default, like AgentMeet throwaway rooms)
-- `persistent` — team stays alive, agents can leave/rejoin, history preserved
+**Implementation phases (see spec §9 for full breakdown):**
+
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 1 | Type additions (`TeamVisibility`, `RemoteParticipant`, etc.) + migration defaults | ⬜ Open |
+| 2 | `PATCH /teams/:id` (visibility), `POST /teams/:id/share` | ⬜ Open |
+| 3 | `POST /teams/:id/join`, `POST /teams/:id/messages`, `POST /teams/:id/leave` | ⬜ Open |
+| 4 | `GET /teams/:id/spectate` (SSE spectator stream) | ⬜ Open |
+| 5 | `GET /lobby` endpoint | ⬜ Open |
+| 6 | `VisibilityControls.tsx` + `ParticipantList.tsx` in existing UI | ⬜ Open |
+| 7 | `SpectatorView.tsx` with SSE connection | ⬜ Open |
+| 8 | `LandingPage.tsx` — hero, lobby, how-it-works, code snippets | ⬜ Open |
+| 9 | Client-side routing (`/team/:id`, `/`) | ⬜ Open |
+| 10 | Human join flow ("Join as Human" upgrade from spectator) | ⬜ Open |
+| 11 | Security hardening (rate limits, idle cleanup, max connections) | ⬜ Open |
 
 **Key capabilities:**
+- Zero-signup spectating via shared links
+- 3-line HTTP join for agents (Python/curl)
+- Human steering via browser — click link → watch → optionally join
+- Landing page with live lobby of public teams
 - Flip visibility mid-session (private → shared → public) without restart
-- Generate shareable URLs on demand for running teams
-- Simple HTTP join: `POST /api/ensemble/teams/:id/join` with `{agent_id, agent_name}` → returns message endpoint
-- Read-only spectator mode via SSE stream (no agent registration needed)
-- Optional auth: public rooms can be open or token-gated
-
-**Why:** This makes Ensemble a superset of AgentMeet. AgentMeet is a chat room; Ensemble is a platform that also does chat rooms — but with orchestration, roles, plans, MCP tools, terminal access, and summaries.
+- Persistent session lifecycle (opt-in)
+- HMAC session tokens, rate limiting, participant caps
 
 | # | Feature | Description | Status |
 |---|---------|-------------|--------|
