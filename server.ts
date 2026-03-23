@@ -704,13 +704,21 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
 
       res.writeHead(200, sseHeaders)
 
+      // Strip ANSI escape codes for content comparison (avoids false diffs from cursor/color changes)
+      const stripAnsiForCompare = (s: string) =>
+        // eslint-disable-next-line no-control-regex
+        s.replace(/\x1b\[[0-9;]*[a-zA-Z]|\x1b\][^\x07]*\x07|\x1b[^[\]()][^\x1b]*/g, '')
+         .replace(/\s+$/gm, '') // trim trailing whitespace per line
+
       // Send initial capture
       const initialOutput = await runtime.capturePane(sessionName, 500)
       res.write(`event: output\ndata: ${JSON.stringify({ output: initialOutput, timestamp: new Date().toISOString() })}\n\n`)
 
-      let lastOutput = initialOutput
+      let lastOutputHash = stripAnsiForCompare(initialOutput)
+      let lastRawOutput = initialOutput
 
-      // Poll every 500ms for changes
+      // Poll every 2s — TUI agents update their status bars constantly,
+      // so faster polling just causes flicker without adding information
       const interval = setInterval(async () => {
         try {
           const sessionStillExists = await runtime.sessionExists(sessionName)
@@ -721,16 +729,19 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
           }
 
           const currentOutput = await runtime.capturePane(sessionName, 500)
-          if (currentOutput !== lastOutput) {
-            lastOutput = currentOutput
+          const currentHash = stripAnsiForCompare(currentOutput)
+
+          // Only send if the meaningful content changed (ignoring ANSI styling changes)
+          if (currentHash !== lastOutputHash) {
+            lastOutputHash = currentHash
+            lastRawOutput = currentOutput
             res.write(`event: output\ndata: ${JSON.stringify({ output: currentOutput, timestamp: new Date().toISOString() })}\n\n`)
           }
         } catch {
-          // Capture failed — session may have been destroyed
           res.write(`event: error\ndata: ${JSON.stringify({ error: 'Failed to capture session output' })}\n\n`)
           res.end()
         }
-      }, 500)
+      }, 2000)
       interval.unref()
 
       const connection: SessionSseConnection = { res, interval, sessionName }

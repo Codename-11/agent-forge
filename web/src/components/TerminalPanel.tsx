@@ -99,22 +99,14 @@ export function TerminalPanel({ sessionName, agentName, onClose }: TerminalPanel
       try {
         const data = JSON.parse(event.data as string) as { output?: string }
         const newOutput = data.output ?? ''
-        const prevOutput = lastOutputRef.current
 
-        if (newOutput === prevOutput) return // no change
-
-        // Find the common prefix to only write new content
-        // This avoids the flicker of reset+rewrite
-        if (newOutput.startsWith(prevOutput) && prevOutput.length > 0) {
-          // Append only the new tail
-          const tail = newOutput.slice(prevOutput.length)
-          if (tail) terminal.write(tail)
-        } else {
-          // Content changed fundamentally (scroll, screen clear, etc.) — full rewrite
-          terminal.reset()
-          terminal.write(newOutput)
-        }
-
+        // Server already filters by meaningful content changes (ANSI-stripped comparison).
+        // We just need to render what we receive.
+        // On first event: write the full snapshot.
+        // On subsequent events: clear and rewrite (server sends at 2s intervals,
+        // only when text content changed, so this is infrequent).
+        terminal.clear()
+        terminal.write(newOutput)
         lastOutputRef.current = newOutput
       } catch {
         // ignore parse errors
