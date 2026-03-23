@@ -7,7 +7,9 @@
     "inputMethod": "pasteFromFile",
     "color": "blue",
     "icon": "◆",
-    "mcpMode": "mcp-add"
+    "mcpMode": "mcp-add",
+    "avatar": "◆",
+    "personality": "Pragmatic builder who ships fast and iterates."
   },
   "claude": {
     "name": "claude",
@@ -18,7 +20,9 @@
     "color": "green",
     "icon": "●",
     "mcpMode": "config-file",
-    "mcpConfigFlag": "--mcp-config"
+    "mcpConfigFlag": "--mcp-config",
+    "avatar": "●",
+    "personality": "Strategic thinker who reasons carefully before acting."
   },
   "aider": {
     "name": "aider",
@@ -27,7 +31,9 @@
     "readyMarker": "❯",
     "inputMethod": "sendKeys",
     "color": "magenta",
-    "icon": "▲"
+    "icon": "▲",
+    "avatar": "▲",
+    "personality": "Detail-oriented reviewer who catches what others miss."
   },
   "gemini": {
     "name": "gemini",
@@ -36,7 +42,9 @@
     "readyMarker": "Type your message",
     "inputMethod": "pasteFromFile",
     "color": "yellow",
-    "icon": "★"
+    "icon": "★",
+    "avatar": "★",
+    "personality": "Creative problem-solver with broad knowledge and quick answers."
   },
   "opencode": {
     "name": "opencode",
@@ -45,6 +53,8 @@
     "readyMarker": "Ask anything",
     "inputMethod": "sendKeys",
     "color": "cyan",
-    "icon": "▣"
+    "icon": "▣",
+    "avatar": "▣",
+    "personality": "Versatile collaborator who adapts to whatever the team needs."
   }
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
   Users,
@@ -16,6 +16,8 @@ import {
   Loader2,
   HelpCircle,
   Copy,
+  Volume2,
+  VolumeX,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useUIStore } from '../stores/ui-store'
@@ -27,6 +29,8 @@ import { PlanTab } from './PlanTab'
 import { TeamControls } from './TeamControls'
 import { TeamSummary } from './TeamSummary'
 import { TerminalPanel } from './TerminalPanel'
+import { StatsOverlay } from './StatsOverlay'
+import { useSounds, getMuted } from '../hooks/useSounds'
 
 interface MonitorProps {
   team: EnsembleTeam
@@ -95,6 +99,23 @@ export function Monitor({ team, messages, connected, error, onSend, onDisband, o
   const toggleSidebar = useUIStore((s) => s.toggleSidebar)
 
   const [selectedSession, setSelectedSession] = useState<string | null>(null)
+
+  // Sound effects
+  const sounds = useSounds()
+  const [muted, setMuted] = useState(getMuted())
+  const prevMsgCount = useRef(messages.length)
+
+  useEffect(() => {
+    if (messages.length > prevMsgCount.current) {
+      sounds.playMessage()
+    }
+    prevMsgCount.current = messages.length
+  }, [messages.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleToggleMute = useCallback(() => {
+    const nowMuted = sounds.toggleMute()
+    setMuted(nowMuted)
+  }, [sounds])
 
   // Add agent form state
   const [showAddAgent, setShowAddAgent] = useState(false)
@@ -186,6 +207,20 @@ export function Monitor({ team, messages, connected, error, onSend, onDisband, o
             </span>
 
             <ConnectionStatus connected={connected} error={error} teamStatus={team.status} />
+
+            {/* Mute toggle */}
+            <button
+              onClick={handleToggleMute}
+              className={cn(
+                'inline-flex items-center justify-center rounded-md border p-1.5 transition-colors',
+                muted
+                  ? 'border-border text-muted-foreground/40 hover:text-foreground hover:border-[var(--border-strong)]'
+                  : 'border-green-500/30 bg-green-500/10 text-green-400',
+              )}
+              title={muted ? 'Unmute sounds' : 'Mute sounds'}
+            >
+              {muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
+            </button>
 
             {/* Sidebar toggle */}
             <button
@@ -481,7 +516,10 @@ export function Monitor({ team, messages, connected, error, onSend, onDisband, o
                 {/* Banners: completion confirmation + agent questions */}
                 <CompletionBanner messages={messages} teamId={team.id} onDisband={onDisband} />
                 <QuestionBanner messages={messages} onSend={onSend} />
-                <MessageFeed messages={messages} agents={team.agents} participants={team.participants ?? []} />
+                <div className="relative flex flex-1 flex-col overflow-hidden">
+                  <MessageFeed messages={messages} agents={team.agents} participants={team.participants ?? []} />
+                  <StatsOverlay team={team} messages={messages} />
+                </div>
                 <ControlPanel agents={team.agents} onSend={onSend} disabled={isTerminal} />
               </div>
               {selectedSession && selectedAgent && (

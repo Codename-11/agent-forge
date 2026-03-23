@@ -4,26 +4,33 @@
  * Allows upgrading to human participant via "Join as Human".
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Loader2, Radio, Users, Eye, ArrowLeft, UserPlus } from 'lucide-react'
+import { Loader2, Radio, Users, Eye, ArrowLeft, UserPlus, Volume2, VolumeX } from 'lucide-react'
 import { cn } from '../lib/utils'
 import type { EnsembleTeam, EnsembleMessage, RemoteParticipant } from '../types'
 import { MessageFeed } from './MessageFeed'
-import { AgentBadge } from './AgentBadge'
+import { AgentBadge, AgentCard } from './AgentBadge'
 import { SteerInput } from './SteerInput'
+import { StatsOverlay } from './StatsOverlay'
+import { useSounds, getMuted } from '../hooks/useSounds'
 
 interface SpectatorViewProps {
   teamId: string
   token?: string
   onBack?: () => void
+  onWatchReplay?: (teamId: string) => void
 }
 
-export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
+export function SpectatorView({ teamId, token, onBack, onWatchReplay }: SpectatorViewProps) {
   const [team, setTeam] = useState<EnsembleTeam | null>(null)
   const [messages, setMessages] = useState<EnsembleMessage[]>([])
   const [participants, setParticipants] = useState<RemoteParticipant[]>([])
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [spectatorCount] = useState(0)
+  const [spectatorCount, setSpectatorCount] = useState(0)
+
+  // Typing indicators: participantId → timeout handle
+  const [typingAgents, setTypingAgents] = useState<Record<string, boolean>>({})
+  const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   // Human join state
   const [showJoinForm, setShowJoinForm] = useState(false)
@@ -31,10 +38,33 @@ export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState<string | null>(null)
   const [sessionToken, setSessionToken] = useState<string | null>(null)
-  const [participantId, setParticipantId] = useState<string | null>(null)
   const [joinedAsHuman, setJoinedAsHuman] = useState(false)
 
+  // Sound state
+  const sounds = useSounds()
+  const [muted, setMuted] = useState(getMuted())
+
   const esRef = useRef<EventSource | null>(null)
+  const prevMessageCount = useRef(0)
+
+  const clearTyping = useCallback((participantId: string) => {
+    if (typingTimers.current[participantId]) {
+      clearTimeout(typingTimers.current[participantId])
+      delete typingTimers.current[participantId]
+    }
+    setTypingAgents(prev => {
+      const next = { ...prev }
+      delete next[participantId]
+      return next
+    })
+  }, [])
+
+  const setTyping = useCallback((participantId: string) => {
+    setTypingAgents(prev => ({ ...prev, [participantId]: true }))
+    // Auto-clear after 5s
+    if (typingTimers.current[participantId]) clearTimeout(typingTimers.current[participantId])
+    typingTimers.current[participantId] = setTimeout(() => clearTyping(participantId), 5000)
+  }, [clearTyping])
 
   // Connect SSE spectator stream
   useEffect(() => {
@@ -55,6 +85,7 @@ export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
         setTeam(data.team)
         setMessages(data.messages ?? [])
         setParticipants(data.participants ?? [])
+        prevMessageCount.current = (data.messages ?? []).length
         setConnected(true)
         setError(null)
       } catch { /* ignore */ }
@@ -66,8 +97,40 @@ export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
         setMessages(prev => {
           const existing = new Set(prev.map(m => m.id))
           const news = data.messages.filter(m => !existing.has(m.id))
+          if (news.length > 0) {
+            sounds.playMessage()
+            // Clear typing for senders
+            for (const msg of news) {
+              clearTyping(msg.from)
+            }
+          }
           return [...prev, ...news]
         })
+      } catch { /* ignore */ }
+    })
+
+    es.addEventListener('typing', (e) => {
+      try {
+        const data = JSON.parse((e as MessageEvent).data) as { participant_id: string }
+        setTyping(data.participant_id)
+      } catch { /* ignore */ }
+    })
+
+    es.addEventListener('typing_stop', (e) => {
+      try {
+        const data = JSON.parse((e as MessageEvent).data) as { participant_id: string }
+        clearTyping(data.participant_id)
+      } catch { /* ignore */ }
+    })
+
+    es.addEventListener('stats', (e) => {
+      try {
+        const data = JSON.parse((e as MessageEvent).data) as {
+          spectator_count: number
+          message_count: number
+          elapsed_ms: number
+        }
+        setSpectatorCount(data.spectator_count)
       } catch { /* ignore */ }
     })
 
@@ -75,6 +138,7 @@ export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
       try {
         const data = JSON.parse((e as MessageEvent).data) as { participant: RemoteParticipant }
         setParticipants(prev => [...prev.filter(p => p.participantId !== data.participant.participantId), data.participant])
+        sounds.playJoin()
       } catch { /* ignore */ }
     })
 
@@ -89,6 +153,7 @@ export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
 
     es.addEventListener('disbanded', () => {
       setConnected(false)
+      sounds.playDisband()
       es.close()
     })
 
@@ -107,8 +172,10 @@ export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
     return () => {
       es.close()
       esRef.current = null
+      // Clear all typing timers
+      for (const t of Object.values(typingTimers.current)) clearTimeout(t)
     }
-  }, [teamId, token])
+  }, [teamId, token]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleJoinAsHuman = useCallback(async () => {
     if (!joinName.trim()) return
@@ -128,7 +195,6 @@ export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
         return
       }
       setSessionToken(data.session_token)
-      setParticipantId(data.participant_id)
       setJoinedAsHuman(true)
       setShowJoinForm(false)
     } catch (err) {
@@ -149,6 +215,11 @@ export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
       body: JSON.stringify({ content, to: 'team' }),
     })
   }, [teamId, sessionToken])
+
+  const handleToggleMute = useCallback(() => {
+    const nowMuted = sounds.toggleMute()
+    setMuted(nowMuted)
+  }, [sounds])
 
   // Determine status color
   const statusColor = team?.status === 'active' ? 'text-green-400' :
@@ -179,6 +250,7 @@ export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
   }
 
   const activeParticipants = participants.filter(p => !p.leftAt)
+  const typingList = Object.keys(typingAgents)
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -220,6 +292,28 @@ export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
             <span>Spectating</span>
           </div>
 
+          {/* Mute toggle */}
+          <button
+            onClick={handleToggleMute}
+            className={cn(
+              'inline-flex items-center justify-center size-7 rounded-md border border-border transition-colors',
+              muted ? 'text-muted-foreground/40 hover:text-foreground' : 'text-green-400 border-green-500/30 bg-green-500/10',
+            )}
+            title={muted ? 'Unmute sounds' : 'Mute sounds'}
+          >
+            {muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
+          </button>
+
+          {/* Replay link for disbanded teams */}
+          {team.status === 'disbanded' && onWatchReplay && (
+            <button
+              onClick={() => onWatchReplay(team.id)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              📼 Watch Replay
+            </button>
+          )}
+
           {/* Join as Human button */}
           {!joinedAsHuman && team.status !== 'disbanded' && (
             <button
@@ -235,6 +329,22 @@ export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
           )}
         </div>
       </header>
+
+      {/* Agent cards row */}
+      {team.agents.length > 0 && (
+        <div className="border-b border-border/50 bg-card/20 px-4 py-2 flex items-start gap-2 overflow-x-auto shrink-0">
+          {team.agents.map(agent => (
+            <AgentCard
+              key={agent.agentId}
+              name={agent.name}
+              program={agent.program}
+              role={agent.role}
+              avatar={(agent as { avatar?: string }).avatar}
+              personality={(agent as { personality?: string }).personality}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Team description */}
       {team.description && (
@@ -273,13 +383,27 @@ export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Message feed */}
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden relative">
           <MessageFeed
             messages={messages}
             agents={team.agents}
             participants={activeParticipants}
             readOnly={!joinedAsHuman}
+            typingAgents={typingList}
           />
+
+          {/* Typing indicator bar */}
+          {typingList.length > 0 && (
+            <div className="px-4 py-1.5 border-t border-border/30 flex items-center gap-2 text-xs text-muted-foreground bg-card/40 shrink-0">
+              <TypingDots />
+              <span>
+                {typingList.length === 1
+                  ? `${typingList[0]} is typing…`
+                  : `${typingList.slice(0, -1).join(', ')} and ${typingList[typingList.length - 1]} are typing…`}
+              </span>
+            </div>
+          )}
+
           {/* Steer input if joined as human */}
           {joinedAsHuman && (
             <div className="border-t border-border px-4 py-3">
@@ -290,6 +414,9 @@ export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
               />
             </div>
           )}
+
+          {/* Stats overlay */}
+          <StatsOverlay team={team} messages={messages} spectatorCount={spectatorCount} />
         </div>
 
         {/* Sidebar: agents + participants */}
@@ -306,6 +433,9 @@ export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
                     program={agent.program}
                     role={agent.role}
                     origin={agent.origin}
+                    showAvatar
+                    avatar={(agent as { avatar?: string }).avatar}
+                    personality={(agent as { personality?: string }).personality}
                   />
                   <span className={cn(
                     'ml-auto text-[0.55rem] rounded-full px-1.5 py-0.5 capitalize',
@@ -346,5 +476,16 @@ export function SpectatorView({ teamId, token, onBack }: SpectatorViewProps) {
         </aside>
       </div>
     </div>
+  )
+}
+
+/** Animated bouncing dots for typing indicator */
+function TypingDots() {
+  return (
+    <span className="flex items-center gap-0.5">
+      <span className="size-1.5 rounded-full bg-muted-foreground/60 animate-[bounce_1s_ease-in-out_infinite]" />
+      <span className="size-1.5 rounded-full bg-muted-foreground/60 animate-[bounce_1s_ease-in-out_0.15s_infinite]" />
+      <span className="size-1.5 rounded-full bg-muted-foreground/60 animate-[bounce_1s_ease-in-out_0.3s_infinite]" />
+    </span>
   )
 }

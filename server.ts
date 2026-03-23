@@ -50,6 +50,23 @@ type SseConnection = {
 }
 const activeSseConnections = new Set<SseConnection>()
 
+// Track typing state per team: participantId → { isTyping, lastSeen }
+const typingState = new Map<string, Map<string, { isTyping: boolean; lastSeen: number }>>()
+
+function broadcastToTeamStreams(teamId: string, eventName: string, data: unknown) {
+  const payload = `event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`
+  for (const conn of activeSseConnections) {
+    if (conn.teamId === teamId) {
+      try { conn.res.write(payload) } catch { /* ignore */ }
+    }
+  }
+  for (const conn of activeSpectatorConnections) {
+    if (conn.teamId === teamId) {
+      try { conn.res.write(payload) } catch { /* ignore */ }
+    }
+  }
+}
+
 // Track active session SSE connections for cleanup
 type SessionSseConnection = {
   res: http.ServerResponse
@@ -481,6 +498,7 @@ const server = http.createServer(async (req, res) => {
       const msgs = initData?.messages ?? []
       if (msgs.length > 0) lastTimestamp = msgs[msgs.length - 1].timestamp
 
+      let spectateStatsTick = 0
       const interval = setInterval(() => {
         const feedResult = getTeamFeed(teamId, lastTimestamp)
         if (feedResult.error) {
@@ -493,6 +511,23 @@ const server = http.createServer(async (req, res) => {
           lastTimestamp = newMsgs[newMsgs.length - 1].timestamp
           res.write(`event: message\ndata: ${JSON.stringify({ messages: newMsgs })}\n\n`)
         }
+
+        // Emit stats every 10s
+        spectateStatsTick++
+        if (spectateStatsTick % 5 === 0) {
+          const currentTeam = getTeam(teamId)
+          if (currentTeam) {
+            const spectatorCount = [...activeSpectatorConnections].filter(c => c.teamId === teamId).length
+            const allMsgs = getEnsembleTeam(teamId).data?.messages ?? []
+            const elapsedMs = Date.now() - new Date(currentTeam.createdAt).getTime()
+            res.write(`event: stats\ndata: ${JSON.stringify({
+              spectator_count: spectatorCount,
+              message_count: allMsgs.length,
+              elapsed_ms: elapsedMs,
+            })}\n\n`)
+          }
+        }
+
         const currentTeam = getTeam(teamId)
         if (currentTeam?.status === 'disbanded') {
           res.write(`event: disbanded\ndata: ${JSON.stringify({ team: currentTeam })}\n\n`)
@@ -508,6 +543,42 @@ const server = http.createServer(async (req, res) => {
         activeSpectatorConnections.delete(conn)
       })
       return
+    }
+
+    // POST /api/ensemble/teams/:id/typing — broadcast typing indicator
+    const typingMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/typing$/)
+    if (typingMatch && method === 'POST') {
+      const teamId = typingMatch[1]
+      const team = getTeam(teamId)
+      if (!team) return json(res, { error: 'Team not found' }, 404, origin)
+      let body: Record<string, unknown> = {}
+      try { body = JSON.parse(await readBody(req)) } catch { /* ok */ }
+      const participantId = typeof body.participant_id === 'string' ? body.participant_id : 'unknown'
+      const isTyping = body.is_typing !== false
+
+      // Update typing state
+      if (!typingState.has(teamId)) typingState.set(teamId, new Map())
+      const teamTyping = typingState.get(teamId)!
+      teamTyping.set(participantId, { isTyping, lastSeen: Date.now() })
+
+      // Broadcast to all SSE streams for this team
+      broadcastToTeamStreams(teamId, isTyping ? 'typing' : 'typing_stop', { participant_id: participantId, is_typing: isTyping })
+
+      return json(res, { ok: true }, 200, origin)
+    }
+
+    // GET /api/ensemble/teams/:id/replay — full history for disbanded teams
+    const replayMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/replay$/)
+    if (replayMatch && method === 'GET') {
+      const teamId = replayMatch[1]
+      const teamResult = getEnsembleTeam(teamId)
+      if (teamResult.error) return json(res, { error: teamResult.error }, teamResult.status, origin)
+      const teamData = teamResult.data!
+      return json(res, {
+        team: teamData.team,
+        messages: teamData.messages,
+        replayUrl: `/replay/${teamId}`,
+      }, 200, origin)
     }
 
     // Team operations: /api/ensemble/teams/:id
@@ -917,6 +988,7 @@ ${formattedMessages}`
       }
 
       // Poll for new messages every 2 seconds
+      let statsTick = 0
       const interval = setInterval(() => {
         const feedResult = getTeamFeed(teamId, lastTimestamp)
         if (feedResult.error) {
@@ -930,6 +1002,32 @@ ${formattedMessages}`
         if (newMessages.length > 0) {
           lastTimestamp = newMessages[newMessages.length - 1].timestamp
           res.write(`event: message\ndata: ${JSON.stringify({ messages: newMessages })}\n\n`)
+          // Clear typing indicators for senders of new messages
+          const teamTyping = typingState.get(teamId)
+          if (teamTyping) {
+            for (const msg of newMessages) {
+              if (teamTyping.has(msg.from)) {
+                teamTyping.delete(msg.from)
+                res.write(`event: typing_stop\ndata: ${JSON.stringify({ participant_id: msg.from, is_typing: false })}\n\n`)
+              }
+            }
+          }
+        }
+
+        // Emit stats every 10s (every 5 polls)
+        statsTick++
+        if (statsTick % 5 === 0) {
+          const currentTeam = getTeam(teamId)
+          if (currentTeam) {
+            const spectatorCount = [...activeSpectatorConnections].filter(c => c.teamId === teamId).length
+            const allMsgs = getEnsembleTeam(teamId).data?.messages ?? []
+            const elapsedMs = Date.now() - new Date(currentTeam.createdAt).getTime()
+            res.write(`event: stats\ndata: ${JSON.stringify({
+              spectator_count: spectatorCount,
+              message_count: allMsgs.length,
+              elapsed_ms: elapsedMs,
+            })}\n\n`)
+          }
         }
 
         // Check if team has been disbanded

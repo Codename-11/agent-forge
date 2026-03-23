@@ -134,6 +134,10 @@ export interface EnsembleTeamAgent {
   worktreeBranch?: string
   /** Participant origin. Default: 'local' for spawned agents. */
   origin?: ParticipantOrigin
+  /** Optional avatar emoji or image URL */
+  avatar?: string
+  /** One-liner personality description */
+  personality?: string
 }
 
 export interface EnsembleTeamResult {

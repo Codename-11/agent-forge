@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Plus,
   Loader2,
-  Users,
   Activity,
   ChevronRight,
   MessageCircle,
@@ -14,6 +13,8 @@ import {
   FastForward,
   PlayCircle,
   Settings,
+  Volume2,
+  VolumeX,
 } from 'lucide-react'
 import { cn } from './lib/utils'
 import type { EnsembleTeam, EnsembleTeamAgent } from './types'
@@ -23,13 +24,21 @@ import { LaunchForm } from './components/LaunchForm'
 import { SettingsPage } from './components/SettingsPage'
 import { LandingPage } from './components/LandingPage'
 import { SpectatorView } from './components/SpectatorView'
+import { ReplayView } from './components/ReplayView'
 import { useUIStore } from './stores/ui-store'
+import { useSounds, getMuted } from './hooks/useSounds'
 
 // ── Client-side routing helpers ───────────────────────────────
 
 function getRouteFromUrl(): { route: string; teamId?: string; token?: string } {
   const pathname = window.location.pathname
   const search = new URLSearchParams(window.location.search)
+
+  // /replay/:id — replay view
+  const replayMatch = pathname.match(/^\/replay\/([^/?]+)/)
+  if (replayMatch) {
+    return { route: 'replay', teamId: replayMatch[1] }
+  }
 
   // /team/:id — spectator view
   const spectateMatch = pathname.match(/^\/team\/([^/?]+)/)
@@ -99,6 +108,17 @@ export function App() {
   const [spectatorToken, setSpectatorToken] = useState<string | undefined>(
     initialRoute.route === 'spectate' ? initialRoute.token : undefined
   )
+  const [replayTeamId, setReplayTeamId] = useState<string | null>(
+    initialRoute.route === 'replay' ? (initialRoute.teamId ?? null) : null
+  )
+
+  // Global sounds
+  const sounds = useSounds()
+  const [muted, setMuted] = useState(getMuted())
+  const handleToggleMute = useCallback(() => {
+    const nowMuted = sounds.toggleMute()
+    setMuted(nowMuted)
+  }, [sounds])
 
   const { team, messages, connected, error, sendMessage, disbandTeam } = useEnsemble(selectedTeamId)
 
@@ -126,10 +146,12 @@ export function App() {
     } catch { /* ignore */ }
   }, [])
 
-  // Handle URL navigation — hash for monitor, /team/:id for spectator
+  // Handle URL navigation — hash for monitor, /team/:id for spectator, /replay/:id for replay
   useEffect(() => {
     const route = getRouteFromUrl()
-    if (route.route === 'spectate' && route.teamId) {
+    if (route.route === 'replay' && route.teamId) {
+      setReplayTeamId(route.teamId)
+    } else if (route.route === 'spectate' && route.teamId) {
       setSpectatorTeamId(route.teamId)
       setSpectatorToken(route.token)
     } else {
@@ -199,6 +221,21 @@ export function App() {
   const totalTeams = teams.length
   const activeCount = activeTeams.length
 
+  // ── Replay view (path-based routing: /replay/:id) ─────────
+  if (replayTeamId) {
+    return (
+      <div className="flex h-full max-h-screen flex-col overflow-hidden">
+        <ReplayView
+          teamId={replayTeamId}
+          onBack={() => {
+            setReplayTeamId(null)
+            window.history.pushState({}, '', '/')
+          }}
+        />
+      </div>
+    )
+  }
+
   // ── Spectator view (path-based routing: /team/:id) ──────────
   if (spectatorTeamId) {
     return (
@@ -211,6 +248,12 @@ export function App() {
             setSpectatorToken(undefined)
             // Restore URL to root
             window.history.pushState({}, '', '/')
+          }}
+          onWatchReplay={(teamId) => {
+            setSpectatorTeamId(null)
+            setSpectatorToken(undefined)
+            setReplayTeamId(teamId)
+            window.history.pushState({}, '', `/replay/${teamId}`)
           }}
         />
       </div>
@@ -283,6 +326,19 @@ export function App() {
         )}
 
         <div className="ml-auto flex items-center gap-2">
+          {/* Global mute toggle */}
+          <button
+            onClick={handleToggleMute}
+            className={cn(
+              'inline-flex items-center justify-center rounded-md p-1.5 transition-colors',
+              muted
+                ? 'text-muted-foreground/40 hover:bg-muted hover:text-foreground'
+                : 'text-green-400 bg-green-500/10 hover:bg-green-500/20',
+            )}
+            title={muted ? 'Unmute sounds' : 'Mute sounds'}
+          >
+            {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+          </button>
           <button
             className="inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             onClick={() => setActiveView('settings')}
@@ -524,6 +580,20 @@ export function App() {
 
                     {/* Right side: actions + arrow */}
                     <div className="flex shrink-0 items-center gap-1.5 ml-3">
+                      {/* Replay icon for disbanded teams */}
+                      {t.status === 'disbanded' && (
+                        <button
+                          className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setReplayTeamId(t.id)
+                            window.history.pushState({}, '', `/replay/${t.id}`)
+                          }}
+                          title="Watch replay"
+                        >
+                          📼 Replay
+                        </button>
+                      )}
                       {hoveredTeamId === t.id && (
                         <>
                           <button

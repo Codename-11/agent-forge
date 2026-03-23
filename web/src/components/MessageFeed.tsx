@@ -1,16 +1,26 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import { MessageCircle, ArrowDown, ArrowRight } from 'lucide-react'
 import { cn } from '../lib/utils'
-import type { EnsembleMessage, EnsembleTeamAgent } from '../types'
+import type { EnsembleMessage, EnsembleTeamAgent, RemoteParticipant } from '../types'
 import { AgentBadge } from './AgentBadge'
 
-import type { RemoteParticipant } from '../types'
+function TypingDots() {
+  return (
+    <span className="flex items-center gap-0.5 py-1">
+      <span className="size-1.5 rounded-full bg-muted-foreground/50 animate-[bounce_1s_ease-in-out_infinite]" />
+      <span className="size-1.5 rounded-full bg-muted-foreground/50 animate-[bounce_1s_ease-in-out_0.15s_infinite]" />
+      <span className="size-1.5 rounded-full bg-muted-foreground/50 animate-[bounce_1s_ease-in-out_0.3s_infinite]" />
+    </span>
+  )
+}
 
 interface MessageFeedProps {
   messages: EnsembleMessage[]
   agents: EnsembleTeamAgent[]
   participants?: RemoteParticipant[]
   readOnly?: boolean
+  /** List of participant IDs / agent names currently typing */
+  typingAgents?: string[]
 }
 
 /* ── Agent border color mapping ────────────────────────────────── */
@@ -145,7 +155,7 @@ function isSameDay(a: string, b: string): boolean {
 
 /* ── Component ─────────────────────────────────────────────────── */
 
-export function MessageFeed({ messages, agents, participants = [], readOnly = false }: MessageFeedProps) {
+export function MessageFeed({ messages, agents, participants = [], readOnly = false, typingAgents = [] }: MessageFeedProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [autoScroll, setAutoScroll] = useState(true)
@@ -350,6 +360,25 @@ export function MessageFeed({ messages, agents, participants = [], readOnly = fa
             </div>
           )
         })}
+        {/* Typing indicators */}
+        {typingAgents.length > 0 && (
+          <div className="flex flex-col gap-1 px-4 py-1">
+            {typingAgents.map(agentId => {
+              const agent = getAgentForName(agentId, agents)
+              return (
+                <div key={agentId} className="flex items-center gap-2">
+                  {agent && (
+                    <AgentBadge name={agent.name} program={agent.program} />
+                  )}
+                  {!agent && (
+                    <span className="text-xs text-muted-foreground">{agentId}</span>
+                  )}
+                  <TypingDots />
+                </div>
+              )
+            })}
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 

@@ -24,6 +24,10 @@ export interface AgentProgram {
    *  - undefined: agent doesn't support MCP */
   mcpConfigFlag?: string
   mcpMode?: 'config-file' | 'mcp-add'
+  /** Optional avatar: emoji or image URL. Falls back to letter-based avatar. */
+  avatar?: string
+  /** One-liner personality description shown in UI tooltips. */
+  personality?: string
 }
 
 export interface AgentsConfig {
