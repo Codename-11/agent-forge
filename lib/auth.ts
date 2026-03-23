@@ -4,7 +4,7 @@
  * Uses:
  * - better-sqlite3 for user/session storage
  * - crypto.scrypt for password hashing (Node built-in, no bcrypt needed)
- * - crypto.randomUUID() for session tokens
+ * - crypto.randomBytes for high-entropy session tokens
  * - HTTP-only cookies for session management
  */
 
@@ -68,10 +68,14 @@ export function hashPassword(password: string): string {
 }
 
 export function verifyPassword(password: string, stored: string): boolean {
+  if (!stored || !stored.includes(':')) return false
   const [salt, hash] = stored.split(':')
   if (!salt || !hash) return false
   const verify = crypto.scryptSync(password, salt, 64).toString('hex')
-  return hash === verify
+  const hashBuf = Buffer.from(hash, 'hex')
+  const verifyBuf = Buffer.from(verify, 'hex')
+  if (hashBuf.length !== verifyBuf.length) return false
+  return crypto.timingSafeEqual(hashBuf, verifyBuf)
 }
 
 // ---------------------------------------------------------------------------
@@ -81,7 +85,7 @@ export function verifyPassword(password: string, stored: string): boolean {
 export function createSession(userId: string): { token: string; expiresAt: string } {
   const db = getDb()
   const id = crypto.randomUUID()
-  const token = crypto.randomUUID()
+  const token = crypto.randomBytes(32).toString('hex')
   const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_MS).toISOString()
 
   db.prepare(
@@ -130,7 +134,7 @@ export function destroySession(token: string): void {
 /** Remove all expired sessions (housekeeping) */
 export function cleanExpiredSessions(): void {
   const db = getDb()
-  db.prepare('DELETE FROM sessions WHERE expiresAt < datetime(\'now\')').run()
+  db.prepare('DELETE FROM sessions WHERE expiresAt < strftime(\'%Y-%m-%dT%H:%M:%fZ\', \'now\')').run()
 }
 
 // ---------------------------------------------------------------------------
@@ -180,18 +184,24 @@ export function listUsers(): Array<{ id: string; username: string; displayName: 
 
 /**
  * Auto-create admin user if no users exist (first-run setup).
- * Uses ENSEMBLE_ADMIN_PASSWORD env var or defaults to 'admin'.
+ * Uses ENSEMBLE_ADMIN_PASSWORD env var or generates a random password.
  */
 export function ensureAdminUser(): void {
   const db = getDb()
   const count = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number }
   if (count.count === 0) {
-    const defaultPassword = process.env.ENSEMBLE_ADMIN_PASSWORD || 'admin'
+    const envPassword = process.env.ENSEMBLE_ADMIN_PASSWORD
+    const defaultPassword = envPassword || crypto.randomBytes(9).toString('base64url').slice(0, 12)
     createUser('admin', defaultPassword, 'Administrator')
     // Update role to admin for the first user
     db.prepare('UPDATE users SET role = ? WHERE username = ?').run('admin', 'admin')
-    console.log('[Agent-Forge] Created default admin user (username: admin, password: admin)')
-    console.log('[Agent-Forge] Change the password via Settings or set ENSEMBLE_ADMIN_PASSWORD env var')
+    console.log('[Agent-Forge] Created default admin user (username: admin)')
+    if (envPassword) {
+      console.log('[Agent-Forge] Using password from ENSEMBLE_ADMIN_PASSWORD env var')
+    } else {
+      console.log(`[Agent-Forge] Generated password: ${defaultPassword}`)
+      console.log('[Agent-Forge] Change it in Settings or set ENSEMBLE_ADMIN_PASSWORD env var')
+    }
   }
 }
 
@@ -218,10 +228,12 @@ export function parseCookies(cookieHeader: string): Record<string, string> {
 /** Build Set-Cookie header value for the session token */
 export function buildSessionCookie(token: string): string {
   const maxAge = Math.floor(SESSION_MAX_AGE_MS / 1000) // 604800 seconds = 7 days
-  return `agent-forge-session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}`
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
+  return `agent-forge-session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}${secure}`
 }
 
 /** Build Set-Cookie header value that clears the session cookie */
 export function buildClearSessionCookie(): string {
-  return 'agent-forge-session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0'
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
+  return `agent-forge-session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secure}`
 }

@@ -68,6 +68,21 @@ function isJoinRateLimited(teamId: string): boolean {
   return current.count > 10
 }
 
+// Login-specific rate limiter: 5 attempts per minute per IP
+const loginRateLimitByIp = new Map<string, RateLimitEntry>()
+const LOGIN_RATE_LIMIT_MAX = 5
+
+function isLoginRateLimited(ip: string): boolean {
+  const now = Date.now()
+  const current = loginRateLimitByIp.get(ip)
+  if (!current || now - current.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    loginRateLimitByIp.set(ip, { count: 1, windowStart: now })
+    return false
+  }
+  current.count++
+  return current.count > LOGIN_RATE_LIMIT_MAX
+}
+
 function stripSensitiveFields(team: any) {
   if (team.participants) {
     team.participants = team.participants.map((p: any) => {
@@ -138,6 +153,11 @@ setInterval(() => {
       rateLimitByIp.delete(ip)
     }
   }
+  for (const [ip, entry] of loginRateLimitByIp) {
+    if (now - entry.windowStart >= RATE_LIMIT_WINDOW_MS) {
+      loginRateLimitByIp.delete(ip)
+    }
+  }
 }, 60_000)
 
 function getAllowedCorsOrigins(): string[] {
@@ -161,14 +181,15 @@ function buildCorsHeaders(origin?: string, isPublicEndpoint?: boolean): Record<s
     'Content-Type': 'application/json',
     'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Credentials': 'true',
     'Vary': 'Origin',
   }
 
-  if (isPublicEndpoint && process.env.ENSEMBLE_PUBLIC_CORS === 'true') {
-    headers['Access-Control-Allow-Origin'] = '*'
-  } else if (origin && isAllowedOrigin(origin)) {
+  if (origin && isAllowedOrigin(origin)) {
     headers['Access-Control-Allow-Origin'] = origin
+    headers['Access-Control-Allow-Credentials'] = 'true'
+  } else if (isPublicEndpoint && process.env.ENSEMBLE_PUBLIC_CORS === 'true') {
+    headers['Access-Control-Allow-Origin'] = '*'
+    // Do NOT set credentials with wildcard origin
   }
 
   return headers
@@ -211,10 +232,13 @@ async function readBody(req: http.IncomingMessage): Promise<string> {
 }
 
 function getClientIp(req: http.IncomingMessage): string {
-  const forwardedFor = req.headers['x-forwarded-for']
-  if (typeof forwardedFor === 'string') {
-    const firstIp = forwardedFor.split(',')[0]?.trim()
-    if (firstIp) return firstIp
+  // Only trust X-Forwarded-For when explicitly configured behind a known proxy
+  if (process.env.ENSEMBLE_TRUST_PROXY === 'true') {
+    const forwardedFor = req.headers['x-forwarded-for']
+    if (typeof forwardedFor === 'string') {
+      const firstIp = forwardedFor.split(',')[0]?.trim()
+      if (firstIp) return firstIp
+    }
   }
 
   return req.socket.remoteAddress || 'unknown'
@@ -266,6 +290,10 @@ const server = http.createServer(async (req, res) => {
 
     // POST /api/ensemble/auth/login — authenticate and set session cookie
     if (path === '/api/ensemble/auth/login' && method === 'POST') {
+      if (isLoginRateLimited(getClientIp(req))) {
+        return json(res, { error: 'Too many login attempts. Try again later.' }, 429, origin)
+      }
+
       let body: Record<string, unknown>
       try {
         body = JSON.parse(await readBody(req))
@@ -350,20 +378,18 @@ const server = http.createServer(async (req, res) => {
         return json(res, { error: 'Username must be 3-32 characters' }, 400, origin)
       }
 
-      if (password.length < 4) {
-        return json(res, { error: 'Password must be at least 4 characters' }, 400, origin)
-      }
-
-      // Check if user already exists
-      const existing = getUser(username)
-      if (existing) {
-        return json(res, { error: 'Username already taken' }, 409, origin)
+      if (password.length < 8) {
+        return json(res, { error: 'Password must be at least 8 characters' }, 400, origin)
       }
 
       try {
         const newUser = createUser(username, password, displayName)
         return json(res, { user: { id: newUser.id, username: newUser.username } }, 201, origin)
-      } catch (err) {
+      } catch (err: unknown) {
+        // Let the UNIQUE constraint handle race conditions (TOCTOU-safe)
+        if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === 'SQLITE_CONSTRAINT_UNIQUE') {
+          return json(res, { error: 'Username already exists' }, 409, origin)
+        }
         return json(res, { error: 'Failed to create user' }, 500, origin)
       }
     }
@@ -372,6 +398,8 @@ const server = http.createServer(async (req, res) => {
 
     // Server info — cwd, available agents, recent project dirs
     if (path === '/api/ensemble/info' && method === 'GET') {
+      if (!requireAuth(req, res, origin)) return
+
       const { loadAgentsConfig } = await import('./lib/agent-config')
       const agentsConfig = loadAgentsConfig()
       const agents = Object.entries(agentsConfig).map(([key, agent]) => ({
@@ -429,6 +457,8 @@ const server = http.createServer(async (req, res) => {
 
     // GET /api/ensemble/config — return current server configuration
     if (path === '/api/ensemble/config' && method === 'GET') {
+      if (!requireAuth(req, res, origin)) return
+
       const { loadAgentsConfig: loadAgents } = await import('./lib/agent-config')
       const { getEnsembleDataDir } = await import('./lib/ensemble-paths')
       const { getCollabRuntimeRoot } = await import('./lib/collab-paths')
@@ -1279,6 +1309,8 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
 
     // List all active sessions: GET /api/ensemble/sessions
     if (path === '/api/ensemble/sessions' && method === 'GET') {
+      if (!requireAuth(req, res, origin)) return
+
       const runtime = getRuntime()
       const sessions = await runtime.listSessions()
       return json(res, {
@@ -1293,6 +1325,8 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
     // Session output: GET /api/ensemble/sessions/:name/output
     const sessionOutputMatch = path.match(/^\/api\/ensemble\/sessions\/([^/]+)\/output$/)
     if (sessionOutputMatch && method === 'GET') {
+      if (!requireAuth(req, res, origin)) return
+
       const sessionName = sessionOutputMatch[1]
       if (!isValidSessionName(sessionName)) {
         return json(res, { error: 'Invalid session name' }, 400, origin)
@@ -1313,6 +1347,8 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
     // Session input: POST /api/ensemble/sessions/:name/input
     const sessionInputMatch = path.match(/^\/api\/ensemble\/sessions\/([^/]+)\/input$/)
     if (sessionInputMatch && method === 'POST') {
+      if (!requireAuth(req, res, origin)) return
+
       const sessionName = sessionInputMatch[1]
       if (!isValidSessionName(sessionName)) {
         return json(res, { error: 'Invalid session name' }, 400, origin)
@@ -1346,6 +1382,8 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
     // Session stream (SSE): GET /api/ensemble/sessions/:name/stream
     const sessionStreamMatch = path.match(/^\/api\/ensemble\/sessions\/([^/]+)\/stream$/)
     if (sessionStreamMatch && method === 'GET') {
+      if (!requireAuth(req, res, origin)) return
+
       const sessionName = sessionStreamMatch[1]
       if (!isValidSessionName(sessionName)) {
         return json(res, { error: 'Invalid session name' }, 400, origin)
@@ -1887,6 +1925,16 @@ server.on('upgrade', (req, socket, head) => {
   const sessionName = match[1]
   // Validate session name
   if (!isValidSessionName(sessionName)) {
+    socket.destroy()
+    return
+  }
+
+  // Authenticate WebSocket upgrade via session cookie
+  const cookies = parseCookies(req.headers.cookie || '')
+  const token = cookies['agent-forge-session']
+  const user = token ? validateAuthSession(token) : null
+  if (!user) {
+    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n')
     socket.destroy()
     return
   }
