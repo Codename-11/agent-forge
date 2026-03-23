@@ -84,12 +84,12 @@ function installForClaude() {
     process.exit(1)
   }
 
-  // claude mcp add ensemble --env KEY=VALUE ... -- node <path>
+  // claude mcp add agent-forge --env KEY=VALUE ... -- node <path>
   const cmdArgs = [
-    'mcp', 'add', 'ensemble',
-    '--env', `ENSEMBLE_TEAM_ID=${teamId}`,
-    '--env', `ENSEMBLE_AGENT_NAME=${agentName}`,
-    '--env', `ENSEMBLE_API_URL=${apiUrl}`,
+    'mcp', 'add', 'agent-forge',
+    '--env', `AGENT_FORGE_TEAM_ID=${teamId}`,
+    '--env', `AGENT_FORGE_AGENT_NAME=${agentName}`,
+    '--env', `AGENT_FORGE_API_URL=${apiUrl}`,
     '--', 'node', MCP_SERVER_PATH,
   ]
 
@@ -118,12 +118,12 @@ function installForCodex() {
     process.exit(1)
   }
 
-  // codex mcp add ensemble --env KEY=VALUE ... -- node <path>
+  // codex mcp add agent-forge --env KEY=VALUE ... -- node <path>
   const cmdArgs = [
-    'mcp', 'add', 'ensemble',
-    '--env', `ENSEMBLE_TEAM_ID=${teamId}`,
-    '--env', `ENSEMBLE_AGENT_NAME=${agentName}`,
-    '--env', `ENSEMBLE_API_URL=${apiUrl}`,
+    'mcp', 'add', 'agent-forge',
+    '--env', `AGENT_FORGE_TEAM_ID=${teamId}`,
+    '--env', `AGENT_FORGE_AGENT_NAME=${agentName}`,
+    '--env', `AGENT_FORGE_API_URL=${apiUrl}`,
     '--', 'node', MCP_SERVER_PATH,
   ]
 
@@ -150,7 +150,7 @@ function uninstallFromClaude() {
   }
 
   log(`  Uninstalling from Claude Code...`)
-  const result = tryExec('claude', ['mcp', 'remove', 'ensemble'])
+  const result = tryExec('claude', ['mcp', 'remove', 'agent-forge'])
   if (result !== null) {
     log(`  ${CHECK} MCP server removed from Claude Code`)
   } else {
@@ -165,7 +165,7 @@ function uninstallFromCodex() {
   }
 
   log(`  Uninstalling from Codex CLI...`)
-  const result = tryExec('codex', ['mcp', 'remove', 'ensemble'])
+  const result = tryExec('codex', ['mcp', 'remove', 'agent-forge'])
   if (result !== null) {
     log(`  ${CHECK} MCP server removed from Codex CLI`)
   } else {

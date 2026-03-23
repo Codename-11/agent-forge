@@ -6,9 +6,9 @@
  * replacing the slower shell-command-based approach.
  *
  * Environment variables:
- *   ENSEMBLE_TEAM_ID    — team this agent belongs to (required)
- *   ENSEMBLE_AGENT_NAME — this agent's display name (required)
- *   ENSEMBLE_API_URL    — API base URL (default: http://localhost:23000)
+ *   AGENT_FORGE_TEAM_ID    — team this agent belongs to (required)
+ *   AGENT_FORGE_AGENT_NAME — this agent's display name (required)
+ *   AGENT_FORGE_API_URL    — API base URL (default: http://localhost:23000)
  *
  * Usage:
  *   node mcp/ensemble-mcp-server.mjs
@@ -22,9 +22,9 @@ import { randomUUID } from 'crypto'
 // Configuration
 // ---------------------------------------------------------------------------
 
-const TEAM_ID = process.env.ENSEMBLE_TEAM_ID || ''
-const AGENT_NAME = process.env.ENSEMBLE_AGENT_NAME || ''
-const API_URL = (process.env.ENSEMBLE_API_URL || 'http://localhost:23000').replace(/\/+$/, '')
+const TEAM_ID = process.env.AGENT_FORGE_TEAM_ID || ''
+const AGENT_NAME = process.env.AGENT_FORGE_AGENT_NAME || ''
+const API_URL = (process.env.AGENT_FORGE_API_URL || 'http://localhost:23000').replace(/\/+$/, '')
 
 const SERVER_INFO = { name: 'agent-forge', version: '1.0.0' }
 const PROTOCOL_VERSION = '2024-11-05'
@@ -213,14 +213,14 @@ async function handleTeamSay(args) {
     return toolError('Missing required argument: message')
   }
   if (!TEAM_ID) {
-    return toolError('ENSEMBLE_TEAM_ID environment variable is not set')
+    return toolError('AGENT_FORGE_TEAM_ID environment variable is not set')
   }
   if (!AGENT_NAME) {
-    return toolError('ENSEMBLE_AGENT_NAME environment variable is not set')
+    return toolError('AGENT_FORGE_AGENT_NAME environment variable is not set')
   }
 
   try {
-    const result = await apiPost(`/api/ensemble/teams/${TEAM_ID}`, {
+    const result = await apiPost(`/api/agent-forge/teams/${TEAM_ID}`, {
       from: AGENT_NAME,
       to,
       content: message,
@@ -243,11 +243,11 @@ async function handleTeamRead(args) {
   const count = args.count || 10
 
   if (!TEAM_ID) {
-    return toolError('ENSEMBLE_TEAM_ID environment variable is not set')
+    return toolError('AGENT_FORGE_TEAM_ID environment variable is not set')
   }
 
   try {
-    const result = await apiGet(`/api/ensemble/teams/${TEAM_ID}/feed`)
+    const result = await apiGet(`/api/agent-forge/teams/${TEAM_ID}/feed`)
 
     if (result.status >= 400) {
       const errMsg = result.body?.error || `HTTP ${result.status}`
@@ -273,11 +273,11 @@ async function handleTeamRead(args) {
 
 async function handleTeamStatus(_args) {
   if (!TEAM_ID) {
-    return toolError('ENSEMBLE_TEAM_ID environment variable is not set')
+    return toolError('AGENT_FORGE_TEAM_ID environment variable is not set')
   }
 
   try {
-    const result = await apiGet(`/api/ensemble/teams/${TEAM_ID}`)
+    const result = await apiGet(`/api/agent-forge/teams/${TEAM_ID}`)
 
     if (result.status >= 400) {
       const errMsg = result.body?.error || `HTTP ${result.status}`
@@ -313,7 +313,7 @@ async function handleTeamStatus(_args) {
  */
 async function handleTeamDone(args) {
   if (!TEAM_ID || !AGENT_NAME) {
-    return toolError('ENSEMBLE_TEAM_ID and ENSEMBLE_AGENT_NAME must be set')
+    return toolError('AGENT_FORGE_TEAM_ID and AGENT_FORGE_AGENT_NAME must be set')
   }
 
   const summary = args.summary || 'Task completed.'
@@ -327,7 +327,7 @@ async function handleTeamDone(args) {
       id: randomUUID(),
       timestamp: new Date().toISOString(),
     }
-    const result = await apiPost(`/api/ensemble/teams/${TEAM_ID}`, message)
+    const result = await apiPost(`/api/agent-forge/teams/${TEAM_ID}`, message)
 
     if (result.status >= 400) {
       return toolError(`Failed to signal completion: ${result.body?.error || result.status}`)
@@ -344,7 +344,7 @@ async function handleTeamDone(args) {
  */
 async function handleTeamPlan(args) {
   if (!TEAM_ID || !AGENT_NAME) {
-    return toolError('ENSEMBLE_TEAM_ID and ENSEMBLE_AGENT_NAME must be set')
+    return toolError('AGENT_FORGE_TEAM_ID and AGENT_FORGE_AGENT_NAME must be set')
   }
 
   const steps = args.steps
@@ -364,7 +364,7 @@ async function handleTeamPlan(args) {
       id: randomUUID(),
       timestamp: new Date().toISOString(),
     }
-    const result = await apiPost(`/api/ensemble/teams/${TEAM_ID}`, message)
+    const result = await apiPost(`/api/agent-forge/teams/${TEAM_ID}`, message)
 
     if (result.status >= 400) {
       return toolError(`Failed to share plan: ${result.body?.error || result.status}`)
@@ -382,7 +382,7 @@ async function handleTeamPlan(args) {
  */
 async function handleTeamAsk(args) {
   if (!TEAM_ID || !AGENT_NAME) {
-    return toolError('ENSEMBLE_TEAM_ID and ENSEMBLE_AGENT_NAME must be set')
+    return toolError('AGENT_FORGE_TEAM_ID and AGENT_FORGE_AGENT_NAME must be set')
   }
 
   const question = args.question
@@ -399,7 +399,7 @@ async function handleTeamAsk(args) {
       timestamp: new Date().toISOString(),
       type: 'question',
     }
-    const result = await apiPost(`/api/ensemble/teams/${TEAM_ID}`, message)
+    const result = await apiPost(`/api/agent-forge/teams/${TEAM_ID}`, message)
 
     if (result.status >= 400) {
       return toolError(`Failed to ask question: ${result.body?.error || result.status}`)

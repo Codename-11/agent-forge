@@ -102,7 +102,7 @@ export class EnsembleClient extends EventEmitter {
   constructor(teamId: string, apiBase?: string) {
     super()
     this.teamId = teamId
-    this.apiBase = apiBase || process.env.ENSEMBLE_URL || DEFAULT_API_BASE
+    this.apiBase = apiBase || process.env.AGENT_FORGE_URL || DEFAULT_API_BASE
   }
 
   // ─── Public read-only accessors ────────────────────────────────────
@@ -146,7 +146,7 @@ export class EnsembleClient extends EventEmitter {
 
   async sendMessage(content: string, target?: string): Promise<void> {
     await apiPost(
-      `/api/ensemble/teams/${this.teamId}`,
+      `/api/agent-forge/teams/${this.teamId}`,
       { from: 'user', to: target || 'team', content },
       this.apiBase,
     )
@@ -158,7 +158,7 @@ export class EnsembleClient extends EventEmitter {
     // Fetch final messages before disbanding
     await this.fetchMessages()
     await apiPost(
-      `/api/ensemble/teams/${this.teamId}/disband`,
+      `/api/agent-forge/teams/${this.teamId}/disband`,
       {},
       this.apiBase,
     )
@@ -176,8 +176,8 @@ export class EnsembleClient extends EventEmitter {
    * Returns `null` if there are no active or forming teams.
    */
   static async resolveLatestTeamId(apiBase?: string): Promise<string | null> {
-    const base = apiBase || process.env.ENSEMBLE_URL || DEFAULT_API_BASE
-    const data = await apiGet<{ teams: EnsembleTeam[] }>('/api/ensemble/teams', base)
+    const base = apiBase || process.env.AGENT_FORGE_URL || DEFAULT_API_BASE
+    const data = await apiGet<{ teams: EnsembleTeam[] }>('/api/agent-forge/teams', base)
     const active = data.teams.filter(t => t.status === 'active' || t.status === 'forming')
     if (active.length === 0) return null
     return active[active.length - 1].id
@@ -187,8 +187,8 @@ export class EnsembleClient extends EventEmitter {
    * Fetch all teams (useful for team picker UIs).
    */
   static async fetchTeams(apiBase?: string): Promise<EnsembleTeam[]> {
-    const base = apiBase || process.env.ENSEMBLE_URL || DEFAULT_API_BASE
-    const data = await apiGet<{ teams: EnsembleTeam[] }>('/api/ensemble/teams', base)
+    const base = apiBase || process.env.AGENT_FORGE_URL || DEFAULT_API_BASE
+    const data = await apiGet<{ teams: EnsembleTeam[] }>('/api/agent-forge/teams', base)
     return data.teams
   }
 
@@ -215,7 +215,7 @@ export class EnsembleClient extends EventEmitter {
 
   private async fetchTeam(): Promise<void> {
     const data = await apiGet<{ team: EnsembleTeam }>(
-      `/api/ensemble/teams/${this.teamId}`,
+      `/api/agent-forge/teams/${this.teamId}`,
       this.apiBase,
     )
     this.team = data.team
@@ -227,7 +227,7 @@ export class EnsembleClient extends EventEmitter {
       ? `?since=${encodeURIComponent(this.lastSeenTimestamp)}`
       : ''
     const data = await apiGet<{ messages: EnsembleMessage[] }>(
-      `/api/ensemble/teams/${this.teamId}/feed${sinceParam}`,
+      `/api/agent-forge/teams/${this.teamId}/feed${sinceParam}`,
       this.apiBase,
     )
     const newMessages = data.messages || []

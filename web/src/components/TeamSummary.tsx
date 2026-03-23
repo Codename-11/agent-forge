@@ -153,7 +153,7 @@ export function TeamSummary({ team, messages, onNavigateToTeam }: TeamSummaryPro
     setGenerating(true)
     setGenerateError(null)
     try {
-      const res = await fetch(`/api/ensemble/teams/${team.id}/summarize`, {
+      const res = await fetch(`/api/agent-forge/teams/${team.id}/summarize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agent: selectedAgent }),
@@ -189,7 +189,7 @@ export function TeamSummary({ team, messages, onNavigateToTeam }: TeamSummaryPro
     setExecuting(true)
     setExecuteError(null)
     try {
-      const res = await fetch(`/api/ensemble/teams/${team.id}/execute`, {
+      const res = await fetch(`/api/agent-forge/teams/${team.id}/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -214,7 +214,7 @@ export function TeamSummary({ team, messages, onNavigateToTeam }: TeamSummaryPro
 
   const handleExportPrompt = useCallback(async () => {
     try {
-      const res = await fetch(`/api/ensemble/teams/${team.id}/export`, {
+      const res = await fetch(`/api/agent-forge/teams/${team.id}/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ format: 'prompt' }),
@@ -232,7 +232,7 @@ export function TeamSummary({ team, messages, onNavigateToTeam }: TeamSummaryPro
 
   const handleCopyJson = useCallback(async () => {
     try {
-      const res = await fetch(`/api/ensemble/teams/${team.id}/export`, {
+      const res = await fetch(`/api/agent-forge/teams/${team.id}/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ format: 'json' }),

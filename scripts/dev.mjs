@@ -44,7 +44,7 @@ const noOpen     = args.includes('--no-open');
 const serverOnly = args.includes('--server-only');
 const webOnly    = args.includes('--web-only');
 
-const SERVER_PORT = parseInt(process.env.ENSEMBLE_PORT || '23000', 10);
+const SERVER_PORT = parseInt(process.env.AGENT_FORGE_PORT || '23000', 10);
 const WEB_PORT    = 5173;
 const SERVER_URL  = `http://127.0.0.1:${SERVER_PORT}`;
 const WEB_URL     = `http://localhost:${WEB_PORT}`;

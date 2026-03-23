@@ -81,7 +81,7 @@ Example:
 # ---STATUS:ACTIVE
 ```
 
-State is tracked in `/tmp/ensemble/<team-id>/.poll-seen` — no need to manage offsets manually.
+State is tracked in `/tmp/agent-forge/<team-id>/.poll-seen` — no need to manage offsets manually.
 
 ---
 
@@ -135,7 +135,7 @@ Shows: team name, status (active/finished/stale), message count, last message, d
 
 ## collab-cleanup.sh
 
-**Remove finished team runtime directories** from `/tmp/ensemble/`.
+**Remove finished team runtime directories** from `/tmp/agent-forge/`.
 
 ```bash
 ./scripts/collab-cleanup.sh

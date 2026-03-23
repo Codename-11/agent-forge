@@ -70,7 +70,7 @@ export function TeamControls({ team, messageCount }: TeamControlsProps) {
     if (Number.isFinite(parsedStall) && parsedStall >= 0) patch.stallAfterMs = Math.round(parsedStall * 60000)
 
     try {
-      const res = await fetch(`/api/ensemble/teams/${team.id}/config`, {
+      const res = await fetch(`/api/agent-forge/teams/${team.id}/config`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),
@@ -235,7 +235,7 @@ function VisibilityControls({ team }: { team: EnsembleTeam }) {
     if (v === visibility) return
     setChanging(true)
     try {
-      const res = await fetch(`/api/ensemble/teams/${team.id}`, {
+      const res = await fetch(`/api/agent-forge/teams/${team.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ visibility: v }),
@@ -335,7 +335,7 @@ function VisibilityControls({ team }: { team: EnsembleTeam }) {
                 <button
                   onClick={async () => {
                     try {
-                      const res = await fetch(`/api/ensemble/teams/${team.id}/share`, { method: 'POST' })
+                      const res = await fetch(`/api/agent-forge/teams/${team.id}/share`, { method: 'POST' })
                       if (res.ok) {
                         const data = await res.json() as { shareLink?: { url: string } }
                         if (data.shareLink?.url) setShareUrl(data.shareLink.url)

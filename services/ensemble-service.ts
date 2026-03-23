@@ -57,8 +57,8 @@ interface CompletionSignal {
   timestamp: number
 }
 // Telegram notifications: set both env vars to enable, omit to disable
-const TELEGRAM_BOT_TOKEN = process.env.ENSEMBLE_TELEGRAM_BOT_TOKEN || ''
-const TELEGRAM_CHAT_ID = process.env.ENSEMBLE_TELEGRAM_CHAT_ID || ''
+const TELEGRAM_BOT_TOKEN = process.env.AGENT_FORGE_TELEGRAM_BOT_TOKEN || ''
+const TELEGRAM_CHAT_ID = process.env.AGENT_FORGE_TELEGRAM_CHAT_ID || ''
 
 class EnsembleService {
   private readonly disbandingTeams = new Set<string>()
@@ -511,7 +511,7 @@ export async function addAgentToTeam(
     agentName: shortName,
     teammateNames: otherNames,
     agentIndex: team.agents.length, // worker role
-    useMcp: (process.env.ENSEMBLE_COMM_MODE || 'mcp') === 'mcp',
+    useMcp: (process.env.AGENT_FORGE_COMM_MODE || 'mcp') === 'mcp',
     permissionMode: team.config?.permissionMode,
   })
 
@@ -523,7 +523,7 @@ export async function addAgentToTeam(
     .join('\n')
   const fullPrompt = `${prompt}\n\nCATCH-UP CONTEXT — here are the last messages from the team:\n${contextSummary}\n\nYou are joining mid-conversation. Read the context above, greet the team, and contribute.`
 
-  const apiUrl = process.env.ENSEMBLE_URL || 'http://localhost:23000'
+  const apiUrl = process.env.AGENT_FORGE_URL || 'http://localhost:23000'
 
   // Spawn the agent
   try {
@@ -637,7 +637,7 @@ async function spawnTeamAgents(team: EnsembleTeam, request: CreateTeamRequest): 
       }
     }
 
-    const apiUrl = process.env.ENSEMBLE_URL || 'http://localhost:23000'
+    const apiUrl = process.env.AGENT_FORGE_URL || 'http://localhost:23000'
 
     const buildPrompt = (agentName: string, otherNames: string[], agentIndex: number) => {
       return buildPromptPreview({
@@ -648,7 +648,7 @@ async function spawnTeamAgents(team: EnsembleTeam, request: CreateTeamRequest): 
         teammateNames: otherNames,
         agentIndex,
         templateName: request.templateName,
-        useMcp: (process.env.ENSEMBLE_COMM_MODE || 'mcp') === 'mcp',
+        useMcp: (process.env.AGENT_FORGE_COMM_MODE || 'mcp') === 'mcp',
         permissionMode: team.config?.permissionMode,
       })
     }
@@ -1244,7 +1244,7 @@ export async function disbandTeam(teamId: string, reason?: 'completed' | 'manual
 
       // Detect the working directory as project hint
       const cwdMatch = team.description.match(/workingDirectory[:\s]*([^\s,}]+)/)
-      const project = process.env.ENSEMBLE_PROJECT
+      const project = process.env.AGENT_FORGE_PROJECT
         || (cwdMatch ? cwdMatch[1].split('/').pop() : undefined)
         || 'ensemble'
 
@@ -1263,7 +1263,7 @@ export async function disbandTeam(teamId: string, reason?: 'completed' | 'manual
   } catch { /* non-fatal */ }
 
   // Auto-generate AI summary in the background (non-blocking)
-  if (process.env.ENSEMBLE_AUTO_SUMMARY !== 'false') {
+  if (process.env.AGENT_FORGE_AUTO_SUMMARY !== 'false') {
     void generateAutoSummary(teamId).catch(err => {
       console.error(`[Agent-Forge] Auto-summary failed for ${teamId}:`, err)
     })
@@ -1274,7 +1274,7 @@ export async function disbandTeam(teamId: string, reason?: 'completed' | 'manual
 
 /**
  * Auto-generate AI summary using claude --print (runs in background after disband).
- * Skipped if ENSEMBLE_AUTO_SUMMARY=false.
+ * Skipped if AGENT_FORGE_AUTO_SUMMARY=false.
  */
 async function generateAutoSummary(teamId: string): Promise<void> {
   const team = getTeam(teamId)
@@ -1365,8 +1365,8 @@ export async function reopenTeam(teamId: string): Promise<ServiceResult<{ team: 
     return { error: 'Team is already active', status: 400 }
   }
 
-  const apiUrl = process.env.ENSEMBLE_URL || 'http://localhost:23000'
-  const useMcp = (process.env.ENSEMBLE_COMM_MODE || 'mcp') === 'mcp'
+  const apiUrl = process.env.AGENT_FORGE_URL || 'http://localhost:23000'
+  const useMcp = (process.env.AGENT_FORGE_COMM_MODE || 'mcp') === 'mcp'
 
   // Reset agent statuses
   for (const agent of team.agents) {
@@ -1577,7 +1577,7 @@ export async function cloneTeam(
 // ── Open Participation ─────────────────────────────────────────────
 
 // Session token helpers (module-level so server.ts can also use them)
-const SESSION_SECRET = process.env.ENSEMBLE_SESSION_SECRET || randomBytes(32).toString('hex')
+const SESSION_SECRET = process.env.AGENT_FORGE_SESSION_SECRET || randomBytes(32).toString('hex')
 
 export function generateSessionToken(participantId: string, teamId: string): string {
   const payload = JSON.stringify({ pid: participantId, tid: teamId, iat: Date.now() })
@@ -1618,7 +1618,7 @@ export function joinTeam(
   }
 
   // Rate limit: max participants per team
-  const maxParticipants = parseInt(process.env.ENSEMBLE_MAX_PARTICIPANTS || '20', 10)
+  const maxParticipants = parseInt(process.env.AGENT_FORGE_MAX_PARTICIPANTS || '20', 10)
   const activeParticipants = (team.participants || []).filter(p => !p.leftAt)
   if (activeParticipants.length >= maxParticipants) {
     return { error: `Team is full (max ${maxParticipants} remote participants)`, status: 429 }
@@ -1661,16 +1661,16 @@ export function joinTeam(
     timestamp: now,
   })
 
-  const baseUrl = process.env.ENSEMBLE_URL || 'http://localhost:23000'
+  const baseUrl = process.env.AGENT_FORGE_URL || 'http://localhost:23000'
 
   return {
     data: {
       participant_id: participantId,
       session_token: sessionToken,
-      send_url: `${baseUrl}/api/ensemble/teams/${teamId}/messages`,
-      poll_url: `${baseUrl}/api/ensemble/teams/${teamId}/feed`,
-      stream_url: `${baseUrl}/api/ensemble/teams/${teamId}/stream`,
-      spectate_url: `${baseUrl}/api/ensemble/teams/${teamId}/spectate`,
+      send_url: `${baseUrl}/api/agent-forge/teams/${teamId}/messages`,
+      poll_url: `${baseUrl}/api/agent-forge/teams/${teamId}/feed`,
+      stream_url: `${baseUrl}/api/agent-forge/teams/${teamId}/stream`,
+      spectate_url: `${baseUrl}/api/agent-forge/teams/${teamId}/spectate`,
       team_info: {
         id: team.id,
         name: team.name,
@@ -1798,7 +1798,7 @@ export function updateTeamVisibility(
 
   let shareLink: ShareLink | undefined
   if (updated && (updated.visibility === 'shared' || updated.visibility === 'public')) {
-    const baseUrl = process.env.ENSEMBLE_URL || 'http://localhost:23000'
+    const baseUrl = process.env.AGENT_FORGE_URL || 'http://localhost:23000'
     shareLink = {
       url: `${baseUrl}/team/${teamId}?token=${updated.joinToken}`,
       joinToken: updated.joinToken,
@@ -1832,7 +1832,7 @@ export function generateShareLink(
     currentTeam = { ...currentTeam, joinToken: newToken }
   }
 
-  const baseUrl = process.env.ENSEMBLE_URL || 'http://localhost:23000'
+  const baseUrl = process.env.AGENT_FORGE_URL || 'http://localhost:23000'
   const shareLink: ShareLink = {
     url: `${baseUrl}/team/${teamId}?token=${currentTeam.joinToken}`,
     joinToken: currentTeam.joinToken,

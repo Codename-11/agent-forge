@@ -18,7 +18,7 @@ import { execFileSync, spawn } from 'child_process'
 import { fileURLToPath } from 'url'
 import path from 'path'
 
-const API_BASE = process.env.ENSEMBLE_URL || 'http://localhost:23000'
+const API_BASE = process.env.AGENT_FORGE_URL || 'http://localhost:23000'
 
 // ANSI
 const c = {
@@ -62,7 +62,7 @@ function apiPost(urlPath: string, body: unknown): Promise<unknown> {
 async function cmdStatus() {
   try {
     const health = await apiGet<{ status: string; version: string }>('/api/v1/health')
-    const teams = await apiGet<{ teams: Array<{ status: string }> }>('/api/ensemble/teams')
+    const teams = await apiGet<{ teams: Array<{ status: string }> }>('/api/agent-forge/teams')
     const active = teams.teams.filter(t => t.status === 'active')
 
     console.log()
@@ -88,7 +88,7 @@ interface TeamListItem {
 
 async function cmdTeams() {
   try {
-    const data = await apiGet<{ teams: TeamListItem[] }>('/api/ensemble/teams')
+    const data = await apiGet<{ teams: TeamListItem[] }>('/api/agent-forge/teams')
 
     if (data.teams.length === 0) {
       console.log(`\n  ${c.yellow}No teams found.${c.r}\n`)
@@ -129,7 +129,7 @@ async function cmdTeams() {
 
 async function cmdSteer(teamId: string, message: string) {
   try {
-    await apiPost(`/api/ensemble/teams/${teamId}`, {
+    await apiPost(`/api/agent-forge/teams/${teamId}`, {
       from: 'user',
       to: 'team',
       content: message,
@@ -178,7 +178,7 @@ async function cmdRun(task: string, agentFlags: string | undefined, timeoutSec: 
 
   // 3. Create team
   const teamName = `run-${Date.now()}`
-  const result = await apiPost('/api/ensemble/teams', {
+  const result = await apiPost('/api/agent-forge/teams', {
     name: teamName,
     description: task,
     agents,
@@ -187,7 +187,7 @@ async function cmdRun(task: string, agentFlags: string | undefined, timeoutSec: 
   }) as { team: { id: string } }
 
   const teamId = result.team.id
-  const runtimeRoot = process.env.ENSEMBLE_RUNTIME_DIR || path.join(os.tmpdir(), 'ensemble')
+  const runtimeRoot = process.env.AGENT_FORGE_RUNTIME_DIR || path.join(os.tmpdir(), 'agent-forge')
   const messagesFile = path.join(runtimeRoot, teamId, 'messages.jsonl')
 
   console.log(`\n  ${c.bold}${c.bWhite}◈ agent-forge run${c.r}`)
@@ -219,7 +219,7 @@ async function cmdRun(task: string, agentFlags: string | undefined, timeoutSec: 
 
     // Check team status
     try {
-      const team = await apiGet<{ team: { status: string } }>(`/api/ensemble/teams/${teamId}`)
+      const team = await apiGet<{ team: { status: string } }>(`/api/agent-forge/teams/${teamId}`)
       if (team.team.status === 'disbanded') {
         console.log(`\n  ${c.bGreen}✓${c.r} Team finished (disbanded)`)
         process.exit(0)

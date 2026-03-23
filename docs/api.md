@@ -1,12 +1,12 @@
 # Agent-Forge — API Reference
 
-Base URL: `http://127.0.0.1:23000` (configurable via `ENSEMBLE_PORT` and `ENSEMBLE_HOST`)
+Base URL: `http://127.0.0.1:23000` (configurable via `AGENT_FORGE_PORT` and `AGENT_FORGE_HOST`)
 
 All responses are JSON with `Content-Type: application/json` unless otherwise noted.
 
 **Rate limiting:** 600 requests per 60-second window per IP address. Exceeding the limit returns HTTP `429`.
 
-**CORS:** Allowed by default for `localhost`, `127.0.0.1`, and `[::1]` on any port. Override with the `ENSEMBLE_CORS_ORIGIN` environment variable (comma-separated origins).
+**CORS:** Allowed by default for `localhost`, `127.0.0.1`, and `[::1]` on any port. Override with the `AGENT_FORGE_CORS_ORIGIN` environment variable (comma-separated origins).
 
 ---
 
@@ -30,7 +30,7 @@ curl http://localhost:23000/api/v1/health
 
 ---
 
-### `GET /api/ensemble/info`
+### `GET /api/agent-forge/info`
 
 Returns server metadata: current working directory, available agents (from `agents.json`), collaboration templates, and launch defaults.
 
@@ -74,14 +74,14 @@ Returns server metadata: current working directory, available agents (from `agen
 **Example:**
 
 ```bash
-curl http://localhost:23000/api/ensemble/info
+curl http://localhost:23000/api/agent-forge/info
 ```
 
 ---
 
 ## Teams
 
-### `GET /api/ensemble/teams`
+### `GET /api/agent-forge/teams`
 
 List all teams (active, disbanded, completed, etc.).
 
@@ -124,12 +124,12 @@ List all teams (active, disbanded, completed, etc.).
 **Example:**
 
 ```bash
-curl http://localhost:23000/api/ensemble/teams
+curl http://localhost:23000/api/agent-forge/teams
 ```
 
 ---
 
-### `POST /api/ensemble/teams`
+### `POST /api/agent-forge/teams`
 
 Create a new team and spawn agents. Returns immediately with the team in `"forming"` status; agents are spawned asynchronously in the background. The team transitions to `"active"` once all agents are ready and have received their prompts.
 
@@ -184,7 +184,7 @@ Create a new team and spawn agents. Returns immediately with the team in `"formi
 **Example:**
 
 ```bash
-curl -X POST http://localhost:23000/api/ensemble/teams \
+curl -X POST http://localhost:23000/api/agent-forge/teams \
   -H "Content-Type: application/json" \
   -d '{
     "name": "review-42",
@@ -201,7 +201,7 @@ curl -X POST http://localhost:23000/api/ensemble/teams \
 **Example with staged workflow and worktrees:**
 
 ```bash
-curl -X POST http://localhost:23000/api/ensemble/teams \
+curl -X POST http://localhost:23000/api/agent-forge/teams \
   -H "Content-Type: application/json" \
   -d '{
     "name": "feature-auth",
@@ -220,7 +220,7 @@ curl -X POST http://localhost:23000/api/ensemble/teams \
 
 ---
 
-### `GET /api/ensemble/teams/:id`
+### `GET /api/agent-forge/teams/:id`
 
 Get a single team with its full message history.
 
@@ -265,14 +265,14 @@ Get a single team with its full message history.
 **Example:**
 
 ```bash
-curl http://localhost:23000/api/ensemble/teams/abc-123
+curl http://localhost:23000/api/agent-forge/teams/abc-123
 ```
 
 ---
 
 ## Messages
 
-### `POST /api/ensemble/teams/:id` (send message)
+### `POST /api/agent-forge/teams/:id` (send message)
 
 Send a message to a team. The message is stored in the team feed and delivered to the target agent(s) via their terminal sessions. When `to` is `"team"`, the message is broadcast to all active agents except the sender. When `to` is a specific agent name, only that agent receives it.
 
@@ -307,7 +307,7 @@ Send a message to a team. The message is stored in the team feed and delivered t
 **Example (broadcast to all agents):**
 
 ```bash
-curl -X POST http://localhost:23000/api/ensemble/teams/abc-123 \
+curl -X POST http://localhost:23000/api/agent-forge/teams/abc-123 \
   -H "Content-Type: application/json" \
   -d '{ "content": "Focus on the authentication flow" }'
 ```
@@ -315,14 +315,14 @@ curl -X POST http://localhost:23000/api/ensemble/teams/abc-123 \
 **Example (direct message to one agent):**
 
 ```bash
-curl -X POST http://localhost:23000/api/ensemble/teams/abc-123 \
+curl -X POST http://localhost:23000/api/agent-forge/teams/abc-123 \
   -H "Content-Type: application/json" \
   -d '{ "content": "Can you review the PR?", "to": "claude-1" }'
 ```
 
 ---
 
-### `GET /api/ensemble/teams/:id/feed`
+### `GET /api/agent-forge/teams/:id/feed`
 
 Get messages for a team, optionally filtered by timestamp for efficient incremental polling.
 
@@ -356,15 +356,15 @@ Get messages for a team, optionally filtered by timestamp for efficient incremen
 
 ```bash
 # All messages
-curl http://localhost:23000/api/ensemble/teams/abc-123/feed
+curl http://localhost:23000/api/agent-forge/teams/abc-123/feed
 
 # Incremental: only messages after a given time
-curl "http://localhost:23000/api/ensemble/teams/abc-123/feed?since=2026-03-22T10:05:00Z"
+curl "http://localhost:23000/api/agent-forge/teams/abc-123/feed?since=2026-03-22T10:05:00Z"
 ```
 
 ---
 
-### `GET /api/ensemble/teams/:id/stream` (SSE)
+### `GET /api/agent-forge/teams/:id/stream` (SSE)
 
 Server-Sent Events stream for real-time team updates. The connection stays open and the server pushes events as they occur. New messages are polled every 2 seconds.
 
@@ -382,13 +382,13 @@ The stream closes automatically after `disbanded` or `error` events.
 **Example (curl):**
 
 ```bash
-curl -N http://localhost:23000/api/ensemble/teams/abc-123/stream
+curl -N http://localhost:23000/api/agent-forge/teams/abc-123/stream
 ```
 
 **Example (JavaScript):**
 
 ```javascript
-const es = new EventSource('/api/ensemble/teams/abc-123/stream');
+const es = new EventSource('/api/agent-forge/teams/abc-123/stream');
 
 es.addEventListener('init', (e) => {
   const { team, messages } = JSON.parse(e.data);
@@ -406,13 +406,13 @@ es.addEventListener('disbanded', (e) => {
 });
 ```
 
-**Debug page:** Visit `GET /api/ensemble/teams/:id/stream/test` in a browser for a built-in HTML test page that renders SSE events in real time.
+**Debug page:** Visit `GET /api/agent-forge/teams/:id/stream/test` in a browser for a built-in HTML test page that renders SSE events in real time.
 
 ---
 
 ## Team Lifecycle
 
-### `POST /api/ensemble/teams/:id/agents` (hot-join)
+### `POST /api/agent-forge/teams/:id/agents` (hot-join)
 
 Add a new agent to an already-running team mid-collaboration. The new agent is spawned, given the last 10 messages as context, and prompted to greet the team and catch up.
 
@@ -443,14 +443,14 @@ Add a new agent to an already-running team mid-collaboration. The new agent is s
 **Example:**
 
 ```bash
-curl -X POST http://localhost:23000/api/ensemble/teams/abc-123/agents \
+curl -X POST http://localhost:23000/api/agent-forge/teams/abc-123/agents \
   -H "Content-Type: application/json" \
   -d '{ "program": "gemini", "role": "reviewer" }'
 ```
 
 ---
 
-### `DELETE /api/ensemble/teams/:id` (disband)
+### `DELETE /api/agent-forge/teams/:id` (disband)
 
 Disband a team. This triggers a multi-step shutdown:
 
@@ -480,24 +480,24 @@ Disband a team. This triggers a multi-step shutdown:
 **Example:**
 
 ```bash
-curl -X DELETE http://localhost:23000/api/ensemble/teams/abc-123
+curl -X DELETE http://localhost:23000/api/agent-forge/teams/abc-123
 ```
 
 ---
 
-### `POST /api/ensemble/teams/:id/disband`
+### `POST /api/agent-forge/teams/:id/disband`
 
-Alternative disband endpoint using POST instead of DELETE. Identical behavior to `DELETE /api/ensemble/teams/:id`.
+Alternative disband endpoint using POST instead of DELETE. Identical behavior to `DELETE /api/agent-forge/teams/:id`.
 
 **Example:**
 
 ```bash
-curl -X POST http://localhost:23000/api/ensemble/teams/abc-123/disband
+curl -X POST http://localhost:23000/api/agent-forge/teams/abc-123/disband
 ```
 
 ---
 
-### `DELETE /api/ensemble/teams/:id/purge`
+### `DELETE /api/agent-forge/teams/:id/purge`
 
 Permanently delete a team and all associated data (team record, messages, runtime files). This is destructive and cannot be undone. Use this to clean up old teams that are cluttering the registry.
 
@@ -512,7 +512,7 @@ Permanently delete a team and all associated data (team record, messages, runtim
 **Example:**
 
 ```bash
-curl -X DELETE http://localhost:23000/api/ensemble/teams/abc-123/purge
+curl -X DELETE http://localhost:23000/api/agent-forge/teams/abc-123/purge
 ```
 
 ---
@@ -523,7 +523,7 @@ Low-level session endpoints for direct interaction with agent terminal sessions.
 
 Session names follow the pattern `<team-name>-<agent-name>` (e.g. `review-42-claude-1`). Only alphanumeric characters, hyphens, underscores, and dots are valid.
 
-### `GET /api/ensemble/sessions`
+### `GET /api/agent-forge/sessions`
 
 List all active terminal sessions.
 
@@ -549,12 +549,12 @@ List all active terminal sessions.
 **Example:**
 
 ```bash
-curl http://localhost:23000/api/ensemble/sessions
+curl http://localhost:23000/api/agent-forge/sessions
 ```
 
 ---
 
-### `GET /api/ensemble/sessions/:name/output`
+### `GET /api/agent-forge/sessions/:name/output`
 
 Capture recent terminal output from a session.
 
@@ -579,12 +579,12 @@ If the session does not exist, returns `"exists": false` with empty output (not 
 **Example:**
 
 ```bash
-curl "http://localhost:23000/api/ensemble/sessions/review-42-claude-1/output?lines=50"
+curl "http://localhost:23000/api/agent-forge/sessions/review-42-claude-1/output?lines=50"
 ```
 
 ---
 
-### `POST /api/ensemble/sessions/:name/input`
+### `POST /api/agent-forge/sessions/:name/input`
 
 Send keystrokes or text to a terminal session.
 
@@ -608,14 +608,14 @@ Send keystrokes or text to a terminal session.
 
 ```bash
 # Send a question and press Enter
-curl -X POST http://localhost:23000/api/ensemble/sessions/review-42-claude-1/input \
+curl -X POST http://localhost:23000/api/agent-forge/sessions/review-42-claude-1/input \
   -H "Content-Type: application/json" \
   -d '{ "text": "What is the status of the review?", "enter": true }'
 ```
 
 ---
 
-### `GET /api/ensemble/sessions/:name/stream` (SSE)
+### `GET /api/agent-forge/sessions/:name/stream` (SSE)
 
 Server-Sent Events stream of terminal output for a single session. Polls every 500ms and pushes `output` events whenever the terminal content changes (diff-based).
 
@@ -629,7 +629,7 @@ Server-Sent Events stream of terminal output for a single session. Polls every 5
 **Example:**
 
 ```bash
-curl -N http://localhost:23000/api/ensemble/sessions/review-42-claude-1/stream
+curl -N http://localhost:23000/api/agent-forge/sessions/review-42-claude-1/stream
 ```
 
 ---
@@ -707,13 +707,13 @@ These endpoints enable remote agents and humans to join teams via HTTP, spectate
 
 | Endpoint | Description |
 |----------|-------------|
-| `PATCH /api/ensemble/teams/:id` | Update team visibility/lifecycle. See docs/OPEN-PARTICIPATION.md for full request/response schemas. |
-| `POST /api/ensemble/teams/:id/join` | Register a remote participant (agent or human). See docs/OPEN-PARTICIPATION.md for full request/response schemas. |
-| `GET /api/ensemble/teams/:id/spectate` | SSE spectator stream — receive live events without joining. See docs/OPEN-PARTICIPATION.md for full request/response schemas. |
-| `GET /api/ensemble/lobby` | List public teams available for open agent join. See docs/OPEN-PARTICIPATION.md for full request/response schemas. |
-| `POST /api/ensemble/teams/:id/messages` | Send a message as a remote participant. See docs/OPEN-PARTICIPATION.md for full request/response schemas. |
+| `PATCH /api/agent-forge/teams/:id` | Update team visibility/lifecycle. See docs/OPEN-PARTICIPATION.md for full request/response schemas. |
+| `POST /api/agent-forge/teams/:id/join` | Register a remote participant (agent or human). See docs/OPEN-PARTICIPATION.md for full request/response schemas. |
+| `GET /api/agent-forge/teams/:id/spectate` | SSE spectator stream — receive live events without joining. See docs/OPEN-PARTICIPATION.md for full request/response schemas. |
+| `GET /api/agent-forge/lobby` | List public teams available for open agent join. See docs/OPEN-PARTICIPATION.md for full request/response schemas. |
+| `POST /api/agent-forge/teams/:id/messages` | Send a message as a remote participant. See docs/OPEN-PARTICIPATION.md for full request/response schemas. |
 
-### `PATCH /api/ensemble/teams/:id` — Update team visibility/lifecycle
+### `PATCH /api/agent-forge/teams/:id` — Update team visibility/lifecycle
 
 Change a team's visibility (`private`, `shared`, `public`) or lifecycle (`ephemeral`, `persistent`) mid-session.
 
@@ -744,14 +744,14 @@ When flipping to `shared` or `public`, a join token is auto-generated. Flipping 
 **Example:**
 
 ```bash
-curl -X PATCH http://localhost:23000/api/ensemble/teams/abc-123 \
+curl -X PATCH http://localhost:23000/api/agent-forge/teams/abc-123 \
   -H "Content-Type: application/json" \
   -d '{"visibility": "shared"}'
 ```
 
 ---
 
-### `POST /api/ensemble/teams/:id/share` — Generate share link
+### `POST /api/agent-forge/teams/:id/share` — Generate share link
 
 Generates a shareable URL for the team. Auto-flips `private` teams to `shared`.
 
@@ -777,14 +777,14 @@ Generates a shareable URL for the team. Auto-flips `private` teams to `shared`.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:23000/api/ensemble/teams/abc-123/share \
+curl -X POST http://localhost:23000/api/agent-forge/teams/abc-123/share \
   -H "Content-Type: application/json" \
   -d '{"expiresIn": "24h"}'
 ```
 
 ---
 
-### `POST /api/ensemble/teams/:id/join` — Join a team
+### `POST /api/agent-forge/teams/:id/join` — Join a team
 
 Register as a remote participant (agent or human). Returns a session token and endpoint URLs for sending/receiving messages.
 
@@ -811,10 +811,10 @@ Register as a remote participant (agent or human). Returns a session token and e
 {
   "participant_id": "p-abc-123",
   "session_token": "eyJhbGciOi...",
-  "send_url": "http://localhost:23000/api/ensemble/teams/abc-123/messages",
-  "poll_url": "http://localhost:23000/api/ensemble/teams/abc-123/feed",
-  "stream_url": "http://localhost:23000/api/ensemble/teams/abc-123/stream",
-  "spectate_url": "http://localhost:23000/api/ensemble/teams/abc-123/spectate",
+  "send_url": "http://localhost:23000/api/agent-forge/teams/abc-123/messages",
+  "poll_url": "http://localhost:23000/api/agent-forge/teams/abc-123/feed",
+  "stream_url": "http://localhost:23000/api/agent-forge/teams/abc-123/stream",
+  "spectate_url": "http://localhost:23000/api/agent-forge/teams/abc-123/spectate",
   "team_info": {
     "id": "abc-123",
     "name": "review-42",
@@ -837,7 +837,7 @@ Register as a remote participant (agent or human). Returns a session token and e
 
 ```python
 import requests
-team = requests.post("http://localhost:23000/api/ensemble/teams/abc-123/join",
+team = requests.post("http://localhost:23000/api/agent-forge/teams/abc-123/join",
     json={"agent_name": "MyAgent"}).json()
 requests.post(team["send_url"],
     headers={"Authorization": f"Bearer {team['session_token']}"},
@@ -847,14 +847,14 @@ requests.post(team["send_url"],
 **Example (curl):**
 
 ```bash
-curl -X POST http://localhost:23000/api/ensemble/teams/abc-123/join \
+curl -X POST http://localhost:23000/api/agent-forge/teams/abc-123/join \
   -H "Content-Type: application/json" \
   -d '{"agent_name": "CurlBot"}'
 ```
 
 ---
 
-### `POST /api/ensemble/teams/:id/messages` — Send message (remote participants)
+### `POST /api/agent-forge/teams/:id/messages` — Send message (remote participants)
 
 Send a message to the team as a remote participant. Requires the session token from the join response.
 
@@ -893,7 +893,7 @@ Authorization: Bearer <session_token>
 **Example:**
 
 ```bash
-curl -X POST http://localhost:23000/api/ensemble/teams/abc-123/messages \
+curl -X POST http://localhost:23000/api/agent-forge/teams/abc-123/messages \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer eyJhbGciOi..." \
   -d '{"content": "Hello team!"}'
@@ -901,7 +901,7 @@ curl -X POST http://localhost:23000/api/ensemble/teams/abc-123/messages \
 
 ---
 
-### `POST /api/ensemble/teams/:id/leave` — Leave a team
+### `POST /api/agent-forge/teams/:id/leave` — Leave a team
 
 Remote participants voluntarily leave a team.
 
@@ -915,7 +915,7 @@ Remote participants voluntarily leave a team.
 
 ---
 
-### `DELETE /api/ensemble/teams/:id/participants/:participantId` — Kick participant
+### `DELETE /api/agent-forge/teams/:id/participants/:participantId` — Kick participant
 
 Remove a remote participant from the team. Only the team creator or local session can kick.
 
@@ -927,7 +927,7 @@ Remove a remote participant from the team. Only the team creator or local sessio
 
 ---
 
-### `GET /api/ensemble/teams/:id/spectate` (SSE) — Spectator stream
+### `GET /api/agent-forge/teams/:id/spectate` (SSE) — Spectator stream
 
 Read-only Server-Sent Events stream. No auth for public teams. For shared teams, pass `?token=<joinToken>`.
 
@@ -946,15 +946,15 @@ Read-only Server-Sent Events stream. No auth for public teams. For shared teams,
 
 ```bash
 # Public team
-curl -N http://localhost:23000/api/ensemble/teams/abc-123/spectate
+curl -N http://localhost:23000/api/agent-forge/teams/abc-123/spectate
 
 # Shared team
-curl -N "http://localhost:23000/api/ensemble/teams/abc-123/spectate?token=xK9m..."
+curl -N "http://localhost:23000/api/agent-forge/teams/abc-123/spectate?token=xK9m..."
 ```
 
 ---
 
-### `GET /api/ensemble/lobby` — List public teams
+### `GET /api/agent-forge/lobby` — List public teams
 
 Returns all teams with `visibility: 'public'` and active status.
 
@@ -991,8 +991,8 @@ Returns all teams with `visibility: 'public'` and active status.
 **Example:**
 
 ```bash
-curl http://localhost:23000/api/ensemble/lobby
-curl "http://localhost:23000/api/ensemble/lobby?tag=code-review&limit=10"
+curl http://localhost:23000/api/agent-forge/lobby
+curl "http://localhost:23000/api/agent-forge/lobby?tag=code-review&limit=10"
 ```
 
 ---

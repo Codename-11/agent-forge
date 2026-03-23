@@ -8,8 +8,8 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 
-const RUNTIME_ROOT = process.env.ENSEMBLE_RUNTIME_DIR
-  || path.join(os.tmpdir(), 'ensemble')
+const RUNTIME_ROOT = process.env.AGENT_FORGE_RUNTIME_DIR
+  || path.join(os.tmpdir(), 'agent-forge')
 
 /** Get the runtime root (for display/scripts) */
 export function getCollabRuntimeRoot(): string {

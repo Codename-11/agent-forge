@@ -16,7 +16,7 @@ let _cache: AgentsConfig | null = null
 export function loadAgentsConfig(): AgentsConfig {
   if (_cache) return _cache
 
-  const configPath = process.env['ENSEMBLE_AGENTS_CONFIG']
+  const configPath = process.env['AGENT_FORGE_AGENTS_CONFIG']
     || path.join(__dirname, '..', 'agents.json')
 
   const raw = fs.readFileSync(configPath, 'utf-8')
@@ -62,7 +62,7 @@ export function resolveAgentProgram(program: string): AgentProgram {
  */
 export function buildAgentCommand(program: string): string {
   const agent = resolveAgentProgram(program)
-  const envFlags = (process.env['ENSEMBLE_AGENT_FLAGS'] ?? '').trim()
+  const envFlags = (process.env['AGENT_FORGE_AGENT_FLAGS'] ?? '').trim()
 
   const envTokens = envFlags ? envFlags.split(/\s+/).filter(Boolean) : []
   const envFlagKeys = new Set(envTokens.filter(token => token.startsWith('-')))

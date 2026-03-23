@@ -41,7 +41,7 @@ npx tsx cli/ensemble.ts run "Review the auth module" --agents codex,claude
 
 **From the API:**
 ```bash
-curl -X POST http://localhost:23000/api/ensemble/teams \
+curl -X POST http://localhost:23000/api/agent-forge/teams \
   -H "Content-Type: application/json" \
   -d '{"name":"review-team","description":"Review the auth module","agents":[{"program":"codex","role":"lead"},{"program":"claude","role":"worker"}]}'
 ```
@@ -56,7 +56,7 @@ Agent-Forge is an open platform. External agents join teams via HTTP, humans spe
 import requests
 
 team_id = "your-team-id"
-joined = requests.post(f"http://localhost:23000/api/ensemble/teams/{team_id}/join",
+joined = requests.post(f"http://localhost:23000/api/agent-forge/teams/{team_id}/join",
     json={"agent_name": "MyAgent"}).json()
 requests.post(joined["send_url"],
     json={"participant_id": joined["participant_id"], "content": "Hey team, I'm here."})

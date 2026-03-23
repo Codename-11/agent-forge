@@ -133,7 +133,7 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const res = await fetch('/api/ensemble/config')
+        const res = await fetch('/api/agent-forge/config')
         if (!res.ok) {
           setFetchError(`Failed to load config: ${res.status}`)
           return
@@ -172,7 +172,7 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
   const saveServerSettings = async () => {
     setSaving('server')
     try {
-      const res = await fetch('/api/ensemble/config', {
+      const res = await fetch('/api/agent-forge/config', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ commMode, autoSummary }),
@@ -196,7 +196,7 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
   const saveWatchdogSettings = async () => {
     setSaving('watchdog')
     try {
-      const res = await fetch('/api/ensemble/config', {
+      const res = await fetch('/api/agent-forge/config', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -654,7 +654,7 @@ function AgentKnowledgeSection({ showToast }: { showToast: (type: 'success' | 'e
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    fetch('/api/ensemble/info')
+    fetch('/api/agent-forge/info')
       .then(r => r.json())
       .then((data: { cwd?: string }) => {
         if (data.cwd) {
@@ -721,7 +721,7 @@ function McpSection({ config, showToast }: { config: ServerConfig; showToast: (t
   const [copied, setCopied] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/ensemble/info')
+    fetch('/api/agent-forge/info')
       .then(r => r.json())
       .then((data: { mcpServerPath?: string }) => {
         if (data.mcpServerPath) setMcpServerPath(data.mcpServerPath)
@@ -742,10 +742,10 @@ function McpSection({ config, showToast }: { config: ServerConfig; showToast: (t
   const serverPath = mcpServerPath || '<path-to-agent-forge>/mcp/ensemble-mcp-server.mjs'
   const apiUrl = `http://${config.host === '0.0.0.0' ? 'localhost' : config.host}:${config.port}`
 
-  const claudeInstallCmd = `claude mcp add ensemble --env ENSEMBLE_TEAM_ID=<team-id> --env ENSEMBLE_AGENT_NAME=<name> --env ENSEMBLE_API_URL=${apiUrl} -- node ${serverPath}`
-  const codexInstallCmd = `codex mcp add ensemble --env ENSEMBLE_TEAM_ID=<team-id> --env ENSEMBLE_AGENT_NAME=<name> --env ENSEMBLE_API_URL=${apiUrl} -- node ${serverPath}`
-  const claudeUninstallCmd = 'claude mcp remove ensemble'
-  const codexUninstallCmd = 'codex mcp remove ensemble'
+  const claudeInstallCmd = `claude mcp add agent-forge --env AGENT_FORGE_TEAM_ID=<team-id> --env AGENT_FORGE_AGENT_NAME=<name> --env AGENT_FORGE_API_URL=${apiUrl} -- node ${serverPath}`
+  const codexInstallCmd = `codex mcp add agent-forge --env AGENT_FORGE_TEAM_ID=<team-id> --env AGENT_FORGE_AGENT_NAME=<name> --env AGENT_FORGE_API_URL=${apiUrl} -- node ${serverPath}`
+  const claudeUninstallCmd = 'claude mcp remove agent-forge'
+  const codexUninstallCmd = 'codex mcp remove agent-forge'
   const statusCmd = 'node scripts/mcp-install.mjs status'
 
   const commands = [

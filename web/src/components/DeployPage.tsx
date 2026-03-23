@@ -161,7 +161,7 @@ export function DeployPage({ onBack }: DeployPageProps) {
     setStatusLoading(true)
     setStatusError(null)
     try {
-      const res = await fetch('/api/ensemble/deploy/status')
+      const res = await fetch('/api/agent-forge/deploy/status')
       if (!res.ok) {
         setStatusError(`Failed to load deploy status: ${res.status}`)
         return
@@ -184,7 +184,7 @@ export function DeployPage({ onBack }: DeployPageProps) {
   const fetchHistory = useCallback(async () => {
     setHistoryLoading(true)
     try {
-      const res = await fetch('/api/ensemble/deploy/history')
+      const res = await fetch('/api/agent-forge/deploy/history')
       if (res.ok) {
         const data: DeployHistoryEntry[] = await res.json()
         setDeployHistory(data)
@@ -206,7 +206,7 @@ export function DeployPage({ onBack }: DeployPageProps) {
     setChecking(true)
     setUpdateResult(null)
     try {
-      const res = await fetch('/api/ensemble/deploy/check', { method: 'POST' })
+      const res = await fetch('/api/agent-forge/deploy/check', { method: 'POST' })
       if (!res.ok) {
         showToast('error', `Check failed: ${res.status}`)
         return
@@ -283,7 +283,7 @@ export function DeployPage({ onBack }: DeployPageProps) {
       eventSourceRef.current.close()
     }
 
-    const es = new EventSource('/api/ensemble/deploy/run')
+    const es = new EventSource('/api/agent-forge/deploy/run')
     eventSourceRef.current = es
 
     let sawRestartStep = false
@@ -391,7 +391,7 @@ export function DeployPage({ onBack }: DeployPageProps) {
     setRollingBack(true)
     setRollbackTarget(commitHash)
     try {
-      const res = await fetch('/api/ensemble/deploy/rollback', {
+      const res = await fetch('/api/agent-forge/deploy/rollback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ commitHash }),

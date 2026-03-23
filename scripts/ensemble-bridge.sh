@@ -107,7 +107,7 @@ with open('$FILE') as f:
         }).encode()
 
         req = urllib.request.Request(
-            f'{api}/api/ensemble/teams/{team_id}',
+            f'{api}/api/agent-forge/teams/{team_id}',
             data=data,
             headers={'Content-Type': 'application/json'},
             method='POST'

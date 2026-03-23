@@ -9,7 +9,7 @@ const isWindows = os.platform() === 'win32'
 const TEAM_SAY_SCRIPT = isWindows
   ? path.resolve(process.cwd(), 'scripts/team-say.mjs')
   : path.resolve(process.cwd(), 'scripts/team-say.sh')
-const TMP_ENSEMBLE_DIR = path.join(os.tmpdir(), 'ensemble')
+const TMP_AGENT_FORGE_DIR = path.join(os.tmpdir(), 'agent-forge')
 
 /** Run team-say cross-platform — on Windows, invoke via node */
 function runTeamSay(args: string[], opts?: { encoding: 'utf-8' }): string {
@@ -75,32 +75,32 @@ function writeJsonl(filePath: string, messages: unknown[]): void {
 // 1. getMessages() — merge of dual message stores
 // ─────────────────────────────────────────────────────
 describe('getMessages() — dual store merge', () => {
-  const originalDataDir = process.env.ENSEMBLE_DATA_DIR
+  const originalDataDir = process.env.AGENT_FORGE_DATA_DIR
   let tempRoot: string
   let teamId: string
 
   beforeEach(() => {
     tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ensemble-registry-'))
     teamId = `team-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-    process.env.ENSEMBLE_DATA_DIR = tempRoot
+    process.env.AGENT_FORGE_DATA_DIR = tempRoot
     vi.resetModules()
   })
 
   afterEach(() => {
     vi.resetModules()
     if (originalDataDir === undefined) {
-      delete process.env.ENSEMBLE_DATA_DIR
+      delete process.env.AGENT_FORGE_DATA_DIR
     } else {
-      process.env.ENSEMBLE_DATA_DIR = originalDataDir
+      process.env.AGENT_FORGE_DATA_DIR = originalDataDir
     }
     fs.rmSync(tempRoot, { recursive: true, force: true })
     // Clean up any runtime files we created
-    const tmpDir = path.join(TMP_ENSEMBLE_DIR, teamId)
+    const tmpDir = path.join(TMP_AGENT_FORGE_DIR, teamId)
     if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true })
   })
 
   it('reads messages from feed.jsonl only', async () => {
-    const feedDir = path.join(tempRoot, 'ensemble', 'messages', teamId)
+    const feedDir = path.join(tempRoot, 'registry', 'messages', teamId)
     const msg = makeMessage({ id: 'feed-only', teamId, content: 'from feed' })
     writeJsonl(path.join(feedDir, 'feed.jsonl'), [msg])
 
@@ -112,8 +112,8 @@ describe('getMessages() — dual store merge', () => {
     expect(result[0].content).toBe('from feed')
   })
 
-  it('reads messages from /tmp/ensemble/<teamId>/messages.jsonl only', async () => {
-    const tmpFile = path.join(TMP_ENSEMBLE_DIR, teamId, 'messages.jsonl')
+  it('reads messages from /tmp/agent-forge/<teamId>/messages.jsonl only', async () => {
+    const tmpFile = path.join(TMP_AGENT_FORGE_DIR, teamId, 'messages.jsonl')
     const msg = makeMessage({ id: 'tmp-only', teamId, content: 'from tmp' })
     writeJsonl(tmpFile, [msg])
 
@@ -125,11 +125,11 @@ describe('getMessages() — dual store merge', () => {
   })
 
   it('merges messages from both sources', async () => {
-    const feedDir = path.join(tempRoot, 'ensemble', 'messages', teamId)
+    const feedDir = path.join(tempRoot, 'registry', 'messages', teamId)
     writeJsonl(path.join(feedDir, 'feed.jsonl'), [
       makeMessage({ id: 'feed-msg', teamId, timestamp: '2026-01-01T10:00:00.000Z' }),
     ])
-    writeJsonl(path.join(TMP_ENSEMBLE_DIR, teamId, 'messages.jsonl'), [
+    writeJsonl(path.join(TMP_AGENT_FORGE_DIR, teamId, 'messages.jsonl'), [
       makeMessage({ id: 'tmp-msg', teamId, timestamp: '2026-01-01T10:00:01.000Z' }),
     ])
 
@@ -142,11 +142,11 @@ describe('getMessages() — dual store merge', () => {
 
   it('deduplicates messages with same id (feed.jsonl wins)', async () => {
     const sharedId = 'shared-id'
-    const feedDir = path.join(tempRoot, 'ensemble', 'messages', teamId)
+    const feedDir = path.join(tempRoot, 'registry', 'messages', teamId)
     writeJsonl(path.join(feedDir, 'feed.jsonl'), [
       makeMessage({ id: sharedId, teamId, content: 'from feed', timestamp: '2026-01-01T10:00:00.000Z' }),
     ])
-    writeJsonl(path.join(TMP_ENSEMBLE_DIR, teamId, 'messages.jsonl'), [
+    writeJsonl(path.join(TMP_AGENT_FORGE_DIR, teamId, 'messages.jsonl'), [
       makeMessage({ id: sharedId, teamId, content: 'from tmp', timestamp: '2026-01-01T10:00:00.000Z' }),
     ])
 
@@ -159,7 +159,7 @@ describe('getMessages() — dual store merge', () => {
   })
 
   it('sorts messages by timestamp ascending, missing timestamps last', async () => {
-    const feedDir = path.join(tempRoot, 'ensemble', 'messages', teamId)
+    const feedDir = path.join(tempRoot, 'registry', 'messages', teamId)
     writeJsonl(path.join(feedDir, 'feed.jsonl'), [
       makeMessage({ id: 'late', teamId, timestamp: '2026-01-01T12:00:00.000Z' }),
       makeMessage({ id: 'early', teamId, timestamp: '2026-01-01T10:00:00.000Z' }),
@@ -173,7 +173,7 @@ describe('getMessages() — dual store merge', () => {
   })
 
   it('filters by since parameter', async () => {
-    const feedDir = path.join(tempRoot, 'ensemble', 'messages', teamId)
+    const feedDir = path.join(tempRoot, 'registry', 'messages', teamId)
     writeJsonl(path.join(feedDir, 'feed.jsonl'), [
       makeMessage({ id: 'old', teamId, timestamp: '2026-01-01T10:00:00.000Z' }),
       makeMessage({ id: 'new', teamId, timestamp: '2026-01-01T12:00:00.000Z' }),
@@ -193,12 +193,12 @@ describe('getMessages() — dual store merge', () => {
   })
 
   it('deduplicates by fallback key when id is missing', async () => {
-    const feedDir = path.join(tempRoot, 'ensemble', 'messages', teamId)
+    const feedDir = path.join(tempRoot, 'registry', 'messages', teamId)
     const ts = '2026-01-01T10:00:00.000Z'
     // Two messages with no id but same from+timestamp+content prefix → should dedupe
     const msg = { teamId, from: 'codex-1', to: 'team', content: 'same content here', type: 'chat', timestamp: ts }
     writeJsonl(path.join(feedDir, 'feed.jsonl'), [msg])
-    writeJsonl(path.join(TMP_ENSEMBLE_DIR, teamId, 'messages.jsonl'), [msg])
+    writeJsonl(path.join(TMP_AGENT_FORGE_DIR, teamId, 'messages.jsonl'), [msg])
 
     const { getMessages } = await import('../lib/ensemble-registry')
     const result = getMessages(teamId)
@@ -213,12 +213,12 @@ describe('getMessages() — dual store merge', () => {
 // 2. shouldAutoDisband() — completion detection & idle
 // ─────────────────────────────────────────────────────
 describe('shouldAutoDisband() — tested via checkIdleTeams()', () => {
-  const originalDataDir = process.env.ENSEMBLE_DATA_DIR
+  const originalDataDir = process.env.AGENT_FORGE_DATA_DIR
   let tempRoot: string
 
   beforeEach(() => {
     tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ensemble-disband-'))
-    process.env.ENSEMBLE_DATA_DIR = tempRoot
+    process.env.AGENT_FORGE_DATA_DIR = tempRoot
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-03-18T12:05:00.000Z'))
   })
@@ -233,9 +233,9 @@ describe('shouldAutoDisband() — tested via checkIdleTeams()', () => {
     vi.doUnmock('../lib/agent-runtime')
     vi.doUnmock('../lib/agent-config')
     if (originalDataDir === undefined) {
-      delete process.env.ENSEMBLE_DATA_DIR
+      delete process.env.AGENT_FORGE_DATA_DIR
     } else {
-      process.env.ENSEMBLE_DATA_DIR = originalDataDir
+      process.env.AGENT_FORGE_DATA_DIR = originalDataDir
     }
     fs.rmSync(tempRoot, { recursive: true, force: true })
   })
@@ -440,7 +440,7 @@ describe('team-say — output format', () => {
 
   beforeEach(() => {
     testTeamId = `team-say-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-    outputFile = path.join(TMP_ENSEMBLE_DIR, testTeamId, 'messages.jsonl')
+    outputFile = path.join(TMP_AGENT_FORGE_DIR, testTeamId, 'messages.jsonl')
     fs.mkdirSync(path.dirname(outputFile), { recursive: true })
   })
 

@@ -19,8 +19,8 @@ if (!teamId || !from || !to || !message) {
   process.exit(1)
 }
 
-const runtimeRoot = process.env.ENSEMBLE_RUNTIME_DIR
-  || path.join(os.tmpdir(), 'ensemble')
+const runtimeRoot = process.env.AGENT_FORGE_RUNTIME_DIR
+  || path.join(os.tmpdir(), 'agent-forge')
 const messagesFile = path.join(runtimeRoot, teamId, 'messages.jsonl')
 const lockDir = messagesFile + '.lock'
 

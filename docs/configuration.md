@@ -9,32 +9,32 @@ nav_order: 3
 
 | Variable | Default | Description |
 |---|---|---|
-| `ENSEMBLE_PORT` | `23000` | Server listening port |
-| `ENSEMBLE_URL` | `http://localhost:23000` | CLI target URL |
-| `ENSEMBLE_DATA_DIR` | `~/.ensemble` | Data directory for team persistence |
-| `ENSEMBLE_CORS_ORIGIN` | localhost only | Comma-separated allowed CORS origins |
-| `ENSEMBLE_PROJECT` | auto-detect | Project name for summaries |
-| `ENSEMBLE_AGENTS_CONFIG` | `./agents.json` | Path to custom agents config |
-| `ENSEMBLE_AGENT_FLAGS` | — | Override agent CLI flags |
-| `ENSEMBLE_WATCHDOG_NUDGE_MS` | `90000` | Time (ms) before idle agent nudge |
-| `ENSEMBLE_WATCHDOG_STALL_MS` | `180000` | Time (ms) before stall detection |
-| `ENSEMBLE_TELEGRAM_BOT_TOKEN` | — | Telegram bot token for notifications |
-| `ENSEMBLE_TELEGRAM_CHAT_ID` | — | Telegram chat ID for notifications |
-| `ENSEMBLE_CREATED_BY` | `$USER` | Creator ID for team metadata |
+| `AGENT_FORGE_PORT` | `23000` | Server listening port |
+| `AGENT_FORGE_URL` | `http://localhost:23000` | CLI target URL |
+| `AGENT_FORGE_DATA_DIR` | `~/.agent-forge` | Data directory for team persistence |
+| `AGENT_FORGE_CORS_ORIGIN` | localhost only | Comma-separated allowed CORS origins |
+| `AGENT_FORGE_PROJECT` | auto-detect | Project name for summaries |
+| `AGENT_FORGE_AGENTS_CONFIG` | `./agents.json` | Path to custom agents config |
+| `AGENT_FORGE_AGENT_FLAGS` | — | Override agent CLI flags |
+| `AGENT_FORGE_WATCHDOG_NUDGE_MS` | `90000` | Time (ms) before idle agent nudge |
+| `AGENT_FORGE_WATCHDOG_STALL_MS` | `180000` | Time (ms) before stall detection |
+| `AGENT_FORGE_TELEGRAM_BOT_TOKEN` | — | Telegram bot token for notifications |
+| `AGENT_FORGE_TELEGRAM_CHAT_ID` | — | Telegram chat ID for notifications |
+| `AGENT_FORGE_CREATED_BY` | `$USER` | Creator ID for team metadata |
 
 ### Example `.env`
 
 ```bash
-ENSEMBLE_PORT=23000
-ENSEMBLE_TELEGRAM_BOT_TOKEN=123456:ABC-DEF
-ENSEMBLE_TELEGRAM_CHAT_ID=your-chat-id
+AGENT_FORGE_PORT=23000
+AGENT_FORGE_TELEGRAM_BOT_TOKEN=123456:ABC-DEF
+AGENT_FORGE_TELEGRAM_CHAT_ID=your-chat-id
 ```
 
 ---
 
 ## Agent programs (agents.json)
 
-The `agents.json` file defines which AI agents Agent-Forge can spawn. Located in the project root by default, override with `ENSEMBLE_AGENTS_CONFIG`.
+The `agents.json` file defines which AI agents Agent-Forge can spawn. Located in the project root by default, override with `AGENT_FORGE_AGENTS_CONFIG`.
 
 ```json
 {
@@ -144,7 +144,7 @@ Use via API: `"templateName": "review"` in the create team request. The template
 
 ## Multi-host setup
 
-Run agents on different machines. Configure in `~/.ensemble/hosts.json`:
+Run agents on different machines. Configure in `~/.agent-forge/hosts.json`:
 
 ```json
 {
@@ -189,8 +189,8 @@ Get notified when teams finish. Set up:
 3. Set environment variables:
 
 ```bash
-export ENSEMBLE_TELEGRAM_BOT_TOKEN="123456:ABC-DEF..."
-export ENSEMBLE_TELEGRAM_CHAT_ID="your-chat-id"
+export AGENT_FORGE_TELEGRAM_BOT_TOKEN="123456:ABC-DEF..."
+export AGENT_FORGE_TELEGRAM_CHAT_ID="your-chat-id"
 ```
 
 Notifications include: team name, duration, message count, and a brief summary.

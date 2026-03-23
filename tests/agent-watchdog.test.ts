@@ -46,8 +46,8 @@ function makeMessage(overrides: Partial<EnsembleMessage> = {}): EnsembleMessage 
 }
 
 describe('AgentWatchdog', () => {
-  const originalNudgeMs = process.env.ENSEMBLE_WATCHDOG_NUDGE_MS
-  const originalStallMs = process.env.ENSEMBLE_WATCHDOG_STALL_MS
+  const originalNudgeMs = process.env.AGENT_FORGE_WATCHDOG_NUDGE_MS
+  const originalStallMs = process.env.AGENT_FORGE_WATCHDOG_STALL_MS
 
   let nowMs: number
   let teams: EnsembleTeam[]
@@ -70,14 +70,14 @@ describe('AgentWatchdog', () => {
 
   afterEach(() => {
     if (originalNudgeMs === undefined) {
-      delete process.env.ENSEMBLE_WATCHDOG_NUDGE_MS
+      delete process.env.AGENT_FORGE_WATCHDOG_NUDGE_MS
     } else {
-      process.env.ENSEMBLE_WATCHDOG_NUDGE_MS = originalNudgeMs
+      process.env.AGENT_FORGE_WATCHDOG_NUDGE_MS = originalNudgeMs
     }
     if (originalStallMs === undefined) {
-      delete process.env.ENSEMBLE_WATCHDOG_STALL_MS
+      delete process.env.AGENT_FORGE_WATCHDOG_STALL_MS
     } else {
-      process.env.ENSEMBLE_WATCHDOG_STALL_MS = originalStallMs
+      process.env.AGENT_FORGE_WATCHDOG_STALL_MS = originalStallMs
     }
   })
 
@@ -175,8 +175,8 @@ describe('AgentWatchdog', () => {
   })
 
   it('reads watchdog thresholds from environment variables', () => {
-    process.env.ENSEMBLE_WATCHDOG_NUDGE_MS = '1234'
-    process.env.ENSEMBLE_WATCHDOG_STALL_MS = '5678'
+    process.env.AGENT_FORGE_WATCHDOG_NUDGE_MS = '1234'
+    process.env.AGENT_FORGE_WATCHDOG_STALL_MS = '5678'
 
     expect(getWatchdogNudgeMs()).toBe(1234)
     expect(getWatchdogStallMs()).toBe(5678)

@@ -21,14 +21,14 @@ npm run dev  # starts server (:23000) + SPA (:5173)
 - `types/ensemble.ts` — core TypeScript types
 
 ### API endpoints (key ones)
-- `POST /api/ensemble/teams` — create team
-- `GET /api/ensemble/teams/:id` — get team + messages
-- `POST /api/ensemble/teams/:id` — send message
-- `POST /api/ensemble/teams/:id/agents` — hot-join agent
-- `POST /api/ensemble/teams/:id/reopen` — reopen disbanded team
-- `GET /api/ensemble/teams/:id/stream` — SSE real-time feed
-- `GET /api/ensemble/sessions/:name/ws` — WebSocket terminal stream
-- `GET /api/ensemble/config` — server configuration
+- `POST /api/agent-forge/teams` — create team
+- `GET /api/agent-forge/teams/:id` — get team + messages
+- `POST /api/agent-forge/teams/:id` — send message
+- `POST /api/agent-forge/teams/:id/agents` — hot-join agent
+- `POST /api/agent-forge/teams/:id/reopen` — reopen disbanded team
+- `GET /api/agent-forge/teams/:id/stream` — SSE real-time feed
+- `GET /api/agent-forge/sessions/:name/ws` — WebSocket terminal stream
+- `GET /api/agent-forge/config` — server configuration
 
 ### Documentation
 - `docs/API.md` — complete API reference (16+ endpoints)

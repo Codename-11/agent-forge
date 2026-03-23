@@ -56,7 +56,7 @@ cd "__ENSEMBLE_DIR__" && npx tsx cli/monitor.ts "$TEAM_ID"
 #### Poll via API (recommended on Windows):
 
 ```bash
-curl -s "http://localhost:23000/api/ensemble/teams/$TEAM_ID/feed" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{(JSON.parse(d).messages||[]).forEach(m=>console.log(m.from+': '+m.content))})"
+curl -s "http://localhost:23000/api/agent-forge/teams/$TEAM_ID/feed" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{(JSON.parse(d).messages||[]).forEach(m=>console.log(m.from+': '+m.content))})"
 ```
 
 Or read the messages file directly:

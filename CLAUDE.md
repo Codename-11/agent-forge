@@ -57,27 +57,31 @@ agent-forge/
 
 ### API Routes
 All in `server.ts`. Pattern: regex match on path → parse body → call service function → return JSON.
-API prefix: `/api/ensemble/` (legacy name, kept for compatibility).
+API prefix: `/api/agent-forge/`.
 
 ### Types
 Server types in `types/ensemble.ts`, mirrored in `web/src/types.ts`. Keep both in sync.
 
 ### Routing
 SPA uses pushState routing (not hash). Routes:
-- `/` → Landing page (if `ENSEMBLE_LANDING_PAGE=true`) else dashboard
+- `/` → Landing page (if `AGENT_FORGE_LANDING_PAGE=true`) else dashboard
 - `/app`, `/app/team/:id`, `/app/history`, `/app/settings` → Dashboard
 - `/team/:id`, `/replay/:id`, `/lobby` → Public (no auth)
 
 ### Environment Variables
-All prefixed `ENSEMBLE_` (legacy, kept for compat):
-- `ENSEMBLE_PORT` (default 23000)
-- `ENSEMBLE_HOST` (default 127.0.0.1)
-- `ENSEMBLE_PROJECTS_DIR` — scanned for project directories
-- `ENSEMBLE_LANDING_PAGE` — true/false, show landing page at /
-- `ENSEMBLE_SESSION_SECRET` — HMAC secret for remote participant tokens
-- `ENSEMBLE_AUTO_SUMMARY` — auto-generate AI summaries on disband
-- `ENSEMBLE_COMM_MODE` — mcp (default) or shell
-- `ENSEMBLE_PUBLIC_CORS` — true to allow * CORS on public endpoints
+All prefixed `AGENT_FORGE_`:
+- `AGENT_FORGE_PORT` (default 23000)
+- `AGENT_FORGE_HOST` (default 127.0.0.1)
+- `AGENT_FORGE_PROJECTS_DIR` — scanned for project directories
+- `AGENT_FORGE_LANDING_PAGE` — true/false, show landing page at /
+- `AGENT_FORGE_SESSION_SECRET` — HMAC secret for remote participant tokens
+- `AGENT_FORGE_AUTO_SUMMARY` — auto-generate AI summaries on disband
+- `AGENT_FORGE_COMM_MODE` — mcp (default) or shell
+- `AGENT_FORGE_PUBLIC_CORS` — true to allow * CORS on public endpoints
+- `AGENT_FORGE_DATA_DIR` — data directory (default ~/.agent-forge)
+- `AGENT_FORGE_RUNTIME_DIR` — runtime directory (default /tmp/agent-forge)
+- `AGENT_FORGE_URL` — API base URL (default http://localhost:23000)
+- `AGENT_FORGE_ADMIN_PASSWORD` — initial admin password
 
 ### Deployment (Docker-Server)
 ```bash
@@ -87,19 +91,19 @@ All prefixed `ENSEMBLE_` (legacy, kept for compat):
 # Manual steps
 git pull origin main
 cd web && npm run build && cd ..
-systemctl --user restart openclaw-ensemble
+systemctl --user restart openclaw-agent-forge
 
 # Check status
-systemctl --user status openclaw-ensemble
+systemctl --user status openclaw-agent-forge
 curl http://localhost:23000/api/v1/health
 
 # Logs
-journalctl --user -u openclaw-ensemble -f
+journalctl --user -u openclaw-agent-forge -f
 ```
 
 ### Systemd Service
-Located at `~/.config/systemd/user/openclaw-ensemble.service`
-After editing: `systemctl --user daemon-reload && systemctl --user restart openclaw-ensemble`
+Located at `~/.config/systemd/user/openclaw-agent-forge.service`
+After editing: `systemctl --user daemon-reload && systemctl --user restart openclaw-agent-forge`
 
 ## Development Workflow
 
@@ -127,18 +131,18 @@ When passing work between agents (local Claude Code ↔ remote Daemon/Ash):
 curl http://localhost:23000/api/v1/health
 
 # Test lobby
-curl http://localhost:23000/api/ensemble/lobby
+curl http://localhost:23000/api/agent-forge/lobby
 
 # Create a test team
-curl -X POST http://localhost:23000/api/ensemble/teams \
+curl -X POST http://localhost:23000/api/agent-forge/teams \
   -H 'Content-Type: application/json' \
   -d '{"name":"test","description":"test team","agents":[{"program":"claude","role":"lead"}]}'
 ```
 
 ## Branding
 - Display name: **Agent-Forge** ⚒️
-- API paths: `/api/ensemble/` (legacy, don't change without migration plan)
-- Env vars: `ENSEMBLE_*` (legacy, don't change without migration plan)
+- API paths: `/api/agent-forge/`
+- Env vars: `AGENT_FORGE_*`
 - CTA terminology: "Deploy a Team" (not "Launch" or "Start")
 
 ## Key Specs

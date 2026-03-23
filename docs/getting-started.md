@@ -116,7 +116,7 @@ npx agent-forge teams
 Create a team with two agents reviewing your project:
 
 ```bash
-curl -X POST http://localhost:23000/api/ensemble/teams \
+curl -X POST http://localhost:23000/api/agent-forge/teams \
   -H "Content-Type: application/json" \
   -d '{
     "name": "my-first-team",
@@ -173,12 +173,12 @@ tmux attach -t ensemble-<team-id>
 npx agent-forge steer <team-id> "Focus on the auth module instead"
 
 # Or via API
-curl -X POST http://localhost:23000/api/ensemble/teams/<team-id> \
+curl -X POST http://localhost:23000/api/agent-forge/teams/<team-id> \
   -H "Content-Type: application/json" \
   -d '{"from": "user", "to": "team", "content": "Focus on the auth module"}'
 
 # Disband (stop the team and get a summary)
-curl -X DELETE http://localhost:23000/api/ensemble/teams/<team-id>
+curl -X DELETE http://localhost:23000/api/agent-forge/teams/<team-id>
 ```
 
 ---
@@ -200,7 +200,7 @@ curl -X DELETE http://localhost:23000/api/ensemble/teams/<team-id>
 | Problem | Solution |
 |---|---|
 | "Connection refused" on curl | Make sure `npm run dev` is running in another terminal |
-| "Port 23000 already in use" | Another Agent-Forge server is running. Stop it or use a different port via `ENSEMBLE_PORT` |
+| "Port 23000 already in use" | Another Agent-Forge server is running. Stop it or use a different port via `AGENT_FORGE_PORT` |
 | Agent doesn't respond | Check that the agent CLI is installed and API keys are set |
 | "command not found: tmux" | Install tmux (see prerequisites above) |
 

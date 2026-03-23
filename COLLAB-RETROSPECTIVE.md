@@ -68,7 +68,7 @@ Team 1 was **auto-disbanded after ~4 minutes** due to the completion pattern fal
 ### Medium-term
 - [ ] Add file locking to all shared state writes (teams.json, message files)
 - [ ] Implement session checkpointing so disbanded teams can be resumed
-- [ ] Add a `/api/ensemble/teams/:id/signal-complete` endpoint for explicit completion
+- [ ] Add a `/api/agent-forge/teams/:id/signal-complete` endpoint for explicit completion
 
 ### Long-term
 - [ ] Replace JSONL message store with SQLite for efficient cursor-based queries

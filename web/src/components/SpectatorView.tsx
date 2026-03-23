@@ -1,6 +1,6 @@
 /**
  * SpectatorView — read-only live view of a shared/public team.
- * Connects to /api/ensemble/teams/:id/spectate SSE stream.
+ * Connects to /api/agent-forge/teams/:id/spectate SSE stream.
  * Allows upgrading to human participant via "Join as Human".
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -69,8 +69,8 @@ export function SpectatorView({ teamId, token, onBack, onWatchReplay }: Spectato
   // Connect SSE spectator stream
   useEffect(() => {
     const spectateUrl = token
-      ? `/api/ensemble/teams/${teamId}/spectate?token=${encodeURIComponent(token)}`
-      : `/api/ensemble/teams/${teamId}/spectate`
+      ? `/api/agent-forge/teams/${teamId}/spectate?token=${encodeURIComponent(token)}`
+      : `/api/agent-forge/teams/${teamId}/spectate`
 
     const es = new EventSource(spectateUrl)
     esRef.current = es
@@ -184,7 +184,7 @@ export function SpectatorView({ teamId, token, onBack, onWatchReplay }: Spectato
     try {
       const body: Record<string, unknown> = { agent_name: joinName.trim() }
       if (token) body.auth_token = token
-      const res = await fetch(`/api/ensemble/teams/${teamId}/join`, {
+      const res = await fetch(`/api/agent-forge/teams/${teamId}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -206,7 +206,7 @@ export function SpectatorView({ teamId, token, onBack, onWatchReplay }: Spectato
 
   const handleSendMessage = useCallback(async (content: string) => {
     if (!sessionToken) return
-    await fetch(`/api/ensemble/teams/${teamId}/messages`, {
+    await fetch(`/api/agent-forge/teams/${teamId}/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

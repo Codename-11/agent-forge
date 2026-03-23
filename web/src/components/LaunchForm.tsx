@@ -68,7 +68,7 @@ export function LaunchForm({ onLaunch, onCancel }: LaunchFormProps) {
 
   // Fetch server info on mount
   useEffect(() => {
-    fetch('/api/ensemble/info')
+    fetch('/api/agent-forge/info')
       .then(r => r.json())
       .then((data: EnsembleServerInfo) => {
         if (data.cwd) setServerCwd(data.cwd)
@@ -157,7 +157,7 @@ export function LaunchForm({ onLaunch, onCancel }: LaunchFormProps) {
     }
 
     try {
-      const res = await fetch('/api/ensemble/teams', {
+      const res = await fetch('/api/agent-forge/teams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -395,7 +395,7 @@ export function LaunchForm({ onLaunch, onCancel }: LaunchFormProps) {
             {/* Directory dropdown */}
             {showDirPicker && hasPickerItems && (
               <div className="absolute top-full left-0 right-0 z-10 mt-1 max-h-60 overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
-                {/* Project directories (from ENSEMBLE_PROJECTS_DIR) */}
+                {/* Project directories (from AGENT_FORGE_PROJECTS_DIR) */}
                 {projectDirs.length > 0 && (
                   <>
                     <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">

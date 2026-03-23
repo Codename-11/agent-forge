@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./collab-paths.sh
 source "$SCRIPT_DIR/collab-paths.sh"
 
-ENSEMBLE_ROOT="/tmp/ensemble"
+RUNTIME_ROOT="/tmp/agent-forge"
 REFRESH_SECONDS="${COLLAB_STATUS_REFRESH:-5}"
 WATCH=1
 
@@ -197,7 +197,7 @@ render_snapshot() {
   now="$(date +%s)"
   temp_file="$(mktemp)"
 
-  for runtime_dir in "$ENSEMBLE_ROOT"/*; do
+  for runtime_dir in "$RUNTIME_ROOT"/*; do
     [ -d "$runtime_dir" ] || continue
     if ! is_collab_dir "$runtime_dir"; then
       continue
@@ -278,7 +278,7 @@ PY
   fi
   echo ""
   echo -e "  ${BD}${W}◈ collab status${RESET}"
-  echo -e "  ${D}${ENSEMBLE_ROOT}${RESET}"
+  echo -e "  ${D}${RUNTIME_ROOT}${RESET}"
   echo ""
   printf '  %-24s %-10s %8s %-58s %-10s %s\n' "Team" "Status" "Msgs" "Last Message" "Duration" "Agents"
   echo -e "  ${D}$(printf '%.0s─' $(seq 1 132))${RESET}"
@@ -345,8 +345,8 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-if [ ! -d "$ENSEMBLE_ROOT" ]; then
-  printf '%sRuntime root not found: %s%s\n' "$Y" "$ENSEMBLE_ROOT" "$RESET" >&2
+if [ ! -d "$RUNTIME_ROOT" ]; then
+  printf '%sRuntime root not found: %s%s\n' "$Y" "$RUNTIME_ROOT" "$RESET" >&2
   exit 0
 fi
 

@@ -52,11 +52,11 @@ if (!fs.existsSync(skillSource)) {
 fs.mkdirSync(SKILL_DIR, { recursive: true })
 
 // Replace placeholders
-const runtimeRoot = path.join(os.tmpdir(), 'ensemble')
+const runtimeRoot = path.join(os.tmpdir(), 'agent-forge')
 let skillContent = fs.readFileSync(skillSource, 'utf-8')
-  .replace(/__ENSEMBLE_DIR__/g, REPO_DIR)
+  .replace(/__AGENT_FORGE_DIR__/g, REPO_DIR)
   .replace(/__RUNTIME_ROOT__/g, runtimeRoot)
-  .replace(/\/tmp\/ensemble/g, runtimeRoot)
+  .replace(/\/tmp\/agent-forge/g, runtimeRoot)
 
 fs.writeFileSync(path.join(SKILL_DIR, 'SKILL.md'), skillContent)
 log(`  ${CHECK} Skill installed \u2192 ${D}${SKILL_DIR}/SKILL.md${R}`)

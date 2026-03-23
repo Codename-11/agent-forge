@@ -32,7 +32,7 @@ export function HistoryView() {
 
   const fetchTeams = useCallback(async () => {
     try {
-      const res = await fetch('/api/ensemble/teams')
+      const res = await fetch('/api/agent-forge/teams')
       if (!res.ok) { setError(`Failed: ${res.status}`); return }
       const data = await res.json()
       const all: EnsembleTeam[] = data.teams ?? data
@@ -54,7 +54,7 @@ export function HistoryView() {
 
   const handleClone = async (teamId: string) => {
     try {
-      const res = await fetch(`/api/ensemble/teams/${teamId}/clone`, {
+      const res = await fetch(`/api/agent-forge/teams/${teamId}/clone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ seedMessages: false }),
@@ -68,7 +68,7 @@ export function HistoryView() {
 
   const handlePurge = async (teamId: string) => {
     try {
-      await fetch(`/api/ensemble/teams/${teamId}/purge`, { method: 'DELETE' })
+      await fetch(`/api/agent-forge/teams/${teamId}/purge`, { method: 'DELETE' })
       setTeams(prev => prev.filter(t => t.id !== teamId))
     } catch { /* ignore */ }
     setConfirmPurge(null)

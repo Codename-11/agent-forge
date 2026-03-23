@@ -24,7 +24,7 @@ export function useEnsemble(teamId: string | null): UseEnsembleReturn {
   const fetchTeam = useCallback(async () => {
     if (!teamId) return
     try {
-      const res = await fetch(`/api/ensemble/teams/${teamId}`)
+      const res = await fetch(`/api/agent-forge/teams/${teamId}`)
       if (!res.ok) {
         setError(`Failed to fetch team: ${res.status}`)
         return
@@ -51,7 +51,7 @@ export function useEnsemble(teamId: string | null): UseEnsembleReturn {
       const params = lastMessageTimestamp.current
         ? `?since=${encodeURIComponent(lastMessageTimestamp.current)}`
         : ''
-      const res = await fetch(`/api/ensemble/teams/${teamId}/feed${params}`)
+      const res = await fetch(`/api/agent-forge/teams/${teamId}/feed${params}`)
       if (!res.ok) return
       const data = await res.json()
       const feedMessages: EnsembleMessage[] = data.messages ?? data
@@ -104,7 +104,7 @@ export function useEnsemble(teamId: string | null): UseEnsembleReturn {
   const sendMessage = useCallback(async (content: string, to = 'team') => {
     if (!teamId) return
     try {
-      const res = await fetch(`/api/ensemble/teams/${teamId}`, {
+      const res = await fetch(`/api/agent-forge/teams/${teamId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -131,7 +131,7 @@ export function useEnsemble(teamId: string | null): UseEnsembleReturn {
   const disbandTeam = useCallback(async () => {
     if (!teamId) return
     try {
-      const res = await fetch(`/api/ensemble/teams/${teamId}`, {
+      const res = await fetch(`/api/agent-forge/teams/${teamId}`, {
         method: 'DELETE',
       })
       if (!res.ok) {

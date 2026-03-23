@@ -1,6 +1,6 @@
 # Agent-Forge — Changelog 19 maart 2026
 
-> **2026-03-23:** Project renamed from Ensemble → Agent-Forge. Package, README, UI, and docs rebranded. API paths (`/api/ensemble/`) and env vars (`ENSEMBLE_*`) unchanged for now (breaking change, separate task).
+> **2026-03-23:** Project renamed from Ensemble → Agent-Forge. Package, README, UI, and docs rebranded. API paths migrated to `/api/agent-forge/`, env vars migrated to `AGENT_FORGE_*`, data dirs migrated to `~/.agent-forge/` and `/tmp/agent-forge/`.
 
 
 
@@ -162,7 +162,7 @@ cat /tmp/ensemble/<teamId>/summary.txt
 **Testen**:
 ```bash
 # Via API met templateName
-curl -X POST http://localhost:23000/api/ensemble/teams \
+curl -X POST http://localhost:23000/api/agent-forge/teams \
   -H "Content-Type: application/json" \
   -d '{"name":"test","description":"Review my code","templateName":"review","agents":[{"program":"codex","role":"lead"},{"program":"claude code","role":"worker"}]}'
 
@@ -206,7 +206,7 @@ git branch -a      # → toont collab/* branches
 **Testen**:
 ```bash
 # Via API met staged: true
-curl -X POST http://localhost:23000/api/ensemble/teams \
+curl -X POST http://localhost:23000/api/agent-forge/teams \
   -H "Content-Type: application/json" \
   -d '{"name":"staged-test","description":"Build X","staged":true,"agents":[...]}'
 

@@ -1,6 +1,6 @@
 /**
  * ReplayView — shareable replay of a team's conversation.
- * Loads full message history via /api/ensemble/teams/:id/replay.
+ * Loads full message history via /api/agent-forge/teams/:id/replay.
  * Supports playback with timing, play/pause, speed control, progress bar.
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -39,7 +39,7 @@ export function ReplayView({ teamId, onBack }: ReplayViewProps) {
   // Load replay data
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/ensemble/teams/${teamId}/replay`)
+    fetch(`/api/agent-forge/teams/${teamId}/replay`)
       .then(r => r.json())
       .then(data => {
         if (data.error) throw new Error(data.error)

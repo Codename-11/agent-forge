@@ -100,13 +100,13 @@ function writeMcpConfig(options: {
 }): string {
   const mcpConfig = {
     mcpServers: {
-      ensemble: {
+      'agent-forge': {
         command: 'node',
         args: [getMcpServerPath()],
         env: {
-          ENSEMBLE_TEAM_ID: options.teamId,
-          ENSEMBLE_AGENT_NAME: options.agentName,
-          ENSEMBLE_API_URL: options.apiUrl,
+          AGENT_FORGE_TEAM_ID: options.teamId,
+          AGENT_FORGE_AGENT_NAME: options.agentName,
+          AGENT_FORGE_API_URL: options.apiUrl,
         },
       },
     },
@@ -138,9 +138,9 @@ export async function spawnLocalAgent(options: SpawnAgentOptions): Promise<Spawn
   // Set MCP environment variables if team context is available
   if (options.teamId) {
     const apiUrl = options.apiUrl || 'http://localhost:23000'
-    await runtime.setEnvironment(sessionName, 'ENSEMBLE_TEAM_ID', options.teamId)
-    await runtime.setEnvironment(sessionName, 'ENSEMBLE_AGENT_NAME', options.name)
-    await runtime.setEnvironment(sessionName, 'ENSEMBLE_API_URL', apiUrl)
+    await runtime.setEnvironment(sessionName, 'AGENT_FORGE_TEAM_ID', options.teamId)
+    await runtime.setEnvironment(sessionName, 'AGENT_FORGE_AGENT_NAME', options.name)
+    await runtime.setEnvironment(sessionName, 'AGENT_FORGE_API_URL', apiUrl)
   }
 
   // Build the start command, optionally with MCP config
@@ -148,7 +148,7 @@ export async function spawnLocalAgent(options: SpawnAgentOptions): Promise<Spawn
   let mcpFlag = ''
 
   // Check communication mode: "mcp" (default) or "shell" (legacy)
-  const commMode = process.env.ENSEMBLE_COMM_MODE || 'mcp'
+  const commMode = process.env.AGENT_FORGE_COMM_MODE || 'mcp'
 
   let mcpPreCmd = '' // command to run BEFORE the agent start (e.g. codex mcp add)
 
@@ -179,11 +179,11 @@ export async function spawnLocalAgent(options: SpawnAgentOptions): Promise<Spawn
       } else if (mcpMode === 'mcp-add') {
         // Codex: register MCP server via `codex mcp add` before launching
         const envFlags = [
-          `--env ENSEMBLE_TEAM_ID=${options.teamId}`,
-          `--env ENSEMBLE_AGENT_NAME=${shortName}`,
-          `--env ENSEMBLE_API_URL=${apiUrl}`,
+          `--env AGENT_FORGE_TEAM_ID=${options.teamId}`,
+          `--env AGENT_FORGE_AGENT_NAME=${shortName}`,
+          `--env AGENT_FORGE_API_URL=${apiUrl}`,
         ].join(' ')
-        mcpPreCmd = `codex mcp add ensemble ${envFlags} -- node "${mcpServerPath}"`
+        mcpPreCmd = `codex mcp add agent-forge ${envFlags} -- node "${mcpServerPath}"`
       }
     }
   }

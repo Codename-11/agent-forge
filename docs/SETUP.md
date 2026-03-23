@@ -110,16 +110,16 @@ docker build -t ensemble .
 docker run -d \
   --name ensemble \
   -p 23000:23000 \
-  -v ensemble-data:/root/.ensemble \
+  -v ensemble-data:/root/.agent-forge \
   ensemble
 
 # With custom configuration
 docker run -d \
   --name ensemble \
   -p 23000:23000 \
-  -e ENSEMBLE_PORT=23000 \
-  -e ENSEMBLE_HOST=0.0.0.0 \
-  -e ENSEMBLE_DATA_DIR=/data \
+  -e AGENT_FORGE_PORT=23000 \
+  -e AGENT_FORGE_HOST=0.0.0.0 \
+  -e AGENT_FORGE_DATA_DIR=/data \
   -v ensemble-data:/data \
   ensemble
 ```
@@ -164,8 +164,8 @@ User=ensemble
 WorkingDirectory=/opt/ensemble
 ExecStart=/usr/bin/npx tsx server.ts
 Environment=NODE_ENV=production
-Environment=ENSEMBLE_PORT=23000
-Environment=ENSEMBLE_HOST=0.0.0.0
+Environment=AGENT_FORGE_PORT=23000
+Environment=AGENT_FORGE_HOST=0.0.0.0
 Restart=on-failure
 RestartSec=5
 
@@ -191,22 +191,22 @@ curl http://localhost:23000/api/v1/health
 
 | Variable                        | Default                     | Description                                         |
 |---------------------------------|-----------------------------|-----------------------------------------------------|
-| `ENSEMBLE_PORT`                 | `23000`                     | HTTP server port                                    |
-| `ENSEMBLE_HOST`                 | `127.0.0.1`                 | HTTP server bind address                            |
-| `ENSEMBLE_DATA_DIR`             | `~/.ensemble`               | Durable data directory (teams, messages)            |
-| `ENSEMBLE_RUNTIME_DIR`          | `<os.tmpdir()>/ensemble`    | Ephemeral runtime directory (prompts, delivery)     |
-| `ENSEMBLE_URL`                  | `http://localhost:23000`    | API URL used by CLI, bridge, and launch scripts     |
-| `ENSEMBLE_CORS_ORIGIN`          | *(localhost patterns)*      | Comma-separated allowed CORS origins                |
-| `ENSEMBLE_AGENTS_CONFIG`        | `./agents.json`             | Path to agent definitions file                      |
-| `ENSEMBLE_HOST_ID`              | *(auto-detected hostname)*  | This machine's host ID for multi-host setups        |
-| `ENSEMBLE_CREATED_BY`           | `$USER`                     | Default "created by" field for new teams            |
-| `ENSEMBLE_WATCHDOG_NUDGE_MS`    | `180000` (3 min)            | Idle time before watchdog nudges an agent           |
-| `ENSEMBLE_WATCHDOG_STALL_MS`    | `300000` (5 min)            | Idle time before marking agent as stalled           |
-| `ENSEMBLE_TELEGRAM_BOT_TOKEN`   | *(disabled)*                | Telegram bot token for disband notifications        |
-| `ENSEMBLE_TELEGRAM_CHAT_ID`     | *(disabled)*                | Telegram chat ID for disband notifications          |
+| `AGENT_FORGE_PORT`                 | `23000`                     | HTTP server port                                    |
+| `AGENT_FORGE_HOST`                 | `127.0.0.1`                 | HTTP server bind address                            |
+| `AGENT_FORGE_DATA_DIR`             | `~/.agent-forge`               | Durable data directory (teams, messages)            |
+| `AGENT_FORGE_RUNTIME_DIR`          | `<os.tmpdir()>/agent-forge`    | Ephemeral runtime directory (prompts, delivery)     |
+| `AGENT_FORGE_URL`                  | `http://localhost:23000`    | API URL used by CLI, bridge, and launch scripts     |
+| `AGENT_FORGE_CORS_ORIGIN`          | *(localhost patterns)*      | Comma-separated allowed CORS origins                |
+| `AGENT_FORGE_AGENTS_CONFIG`        | `./agents.json`             | Path to agent definitions file                      |
+| `AGENT_FORGE_HOST_ID`              | *(auto-detected hostname)*  | This machine's host ID for multi-host setups        |
+| `AGENT_FORGE_CREATED_BY`           | `$USER`                     | Default "created by" field for new teams            |
+| `AGENT_FORGE_WATCHDOG_NUDGE_MS`    | `180000` (3 min)            | Idle time before watchdog nudges an agent           |
+| `AGENT_FORGE_WATCHDOG_STALL_MS`    | `300000` (5 min)            | Idle time before marking agent as stalled           |
+| `AGENT_FORGE_TELEGRAM_BOT_TOKEN`   | *(disabled)*                | Telegram bot token for disband notifications        |
+| `AGENT_FORGE_TELEGRAM_CHAT_ID`     | *(disabled)*                | Telegram chat ID for disband notifications          |
 
 Legacy aliases:
-- `ORCHESTRA_PORT` is accepted as a fallback for `ENSEMBLE_PORT`
+- `ORCHESTRA_PORT` is accepted as a fallback for `AGENT_FORGE_PORT`
 
 ---
 
@@ -283,7 +283,7 @@ The `agents.json` file in the project root defines all supported AI coding agent
    npm start
 
    # Create a test team
-   curl -X POST http://localhost:23000/api/ensemble/teams \
+   curl -X POST http://localhost:23000/api/agent-forge/teams \
      -H "Content-Type: application/json" \
      -d '{
        "name": "test",
@@ -308,10 +308,10 @@ The `agents.json` file in the project root defines all supported AI coding agent
 
 ### Custom agents.json Location
 
-Set `ENSEMBLE_AGENTS_CONFIG` to point to a custom file:
+Set `AGENT_FORGE_AGENTS_CONFIG` to point to a custom file:
 
 ```bash
-ENSEMBLE_AGENTS_CONFIG=/path/to/my-agents.json npm start
+AGENT_FORGE_AGENTS_CONFIG=/path/to/my-agents.json npm start
 ```
 
 ---
@@ -335,13 +335,13 @@ The auto-generated config follows the standard MCP format:
 ```json
 {
   "mcpServers": {
-    "ensemble": {
+    "agent-forge": {
       "command": "node",
       "args": ["/path/to/ensemble/mcp/ensemble-mcp-server.mjs"],
       "env": {
-        "ENSEMBLE_TEAM_ID": "abc-123",
-        "ENSEMBLE_AGENT_NAME": "claude-1",
-        "ENSEMBLE_API_URL": "http://localhost:23000"
+        "AGENT_FORGE_TEAM_ID": "abc-123",
+        "AGENT_FORGE_AGENT_NAME": "claude-1",
+        "AGENT_FORGE_API_URL": "http://localhost:23000"
       }
     }
   }
@@ -354,9 +354,9 @@ You can test the MCP server directly via stdin/stdout:
 
 ```bash
 # Set required env vars
-export ENSEMBLE_TEAM_ID=test-team
-export ENSEMBLE_AGENT_NAME=test-agent
-export ENSEMBLE_API_URL=http://localhost:23000
+export AGENT_FORGE_TEAM_ID=test-team
+export AGENT_FORGE_AGENT_NAME=test-agent
+export AGENT_FORGE_API_URL=http://localhost:23000
 
 # Start the MCP server
 node mcp/ensemble-mcp-server.mjs
@@ -411,8 +411,8 @@ To receive a summary message on Telegram when a team disbands:
 3. Set environment variables:
 
 ```bash
-export ENSEMBLE_TELEGRAM_BOT_TOKEN="123456:ABC-DEF..."
-export ENSEMBLE_TELEGRAM_CHAT_ID="987654321"
+export AGENT_FORGE_TELEGRAM_BOT_TOKEN="123456:ABC-DEF..."
+export AGENT_FORGE_TELEGRAM_CHAT_ID="987654321"
 npm start
 ```
 
@@ -425,7 +425,7 @@ Notifications include: task description, duration, message count, and per-agent 
 To distribute agents across multiple machines:
 
 1. Run the ensemble server on each machine
-2. Create `~/.ensemble/hosts.json`:
+2. Create `~/.agent-forge/hosts.json`:
 
    ```json
    {
@@ -449,7 +449,7 @@ To distribute agents across multiple machines:
 3. When creating a team, specify `hostId` per agent:
 
    ```bash
-   curl -X POST http://localhost:23000/api/ensemble/teams \
+   curl -X POST http://localhost:23000/api/agent-forge/teams \
      -H "Content-Type: application/json" \
      -d '{
        "name": "distributed-review",
@@ -472,7 +472,7 @@ Each host must have the respective agent CLIs installed locally. The orchestrati
 Another process is using the port. Either stop it or use a different port:
 
 ```bash
-ENSEMBLE_PORT=23001 npm start
+AGENT_FORGE_PORT=23001 npm start
 ```
 
 ### Agent fails to spawn
@@ -488,7 +488,7 @@ which claude    # or: which codex, which gemini
 The `readyMarker` in `agents.json` may not match what the agent actually prints. Check the terminal output:
 
 ```bash
-curl "http://localhost:23000/api/ensemble/sessions/<session-name>/output?lines=50"
+curl "http://localhost:23000/api/agent-forge/sessions/<session-name>/output?lines=50"
 ```
 
 Compare with the `readyMarker` value and adjust if needed.
@@ -496,8 +496,8 @@ Compare with the `readyMarker` value and adjust if needed.
 ### Messages not being delivered
 
 1. Check that the ensemble server is running: `curl http://localhost:23000/api/v1/health`
-2. Check that agent sessions exist: `curl http://localhost:23000/api/ensemble/sessions`
-3. Check team status: `curl http://localhost:23000/api/ensemble/teams/<id>`
+2. Check that agent sessions exist: `curl http://localhost:23000/api/agent-forge/sessions`
+3. Check team status: `curl http://localhost:23000/api/agent-forge/teams/<id>`
 
 ### Windows: "node-pty is required"
 

@@ -101,7 +101,7 @@ export function TerminalPanel({ sessionName, agentName, onClose }: TerminalPanel
     terminal.reset()
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}/api/ensemble/sessions/${encodeURIComponent(sessionName)}/ws`
+    const wsUrl = `${protocol}//${window.location.host}/api/agent-forge/sessions/${encodeURIComponent(sessionName)}/ws`
 
     const ws = new WebSocket(wsUrl)
     ws.binaryType = 'arraybuffer'

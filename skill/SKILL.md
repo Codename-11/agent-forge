@@ -11,10 +11,10 @@ metadata:
 
 **Language rule:** ALWAYS respond in the same language the user used to invoke /collab. If the user writes in English, all your output (status updates, summaries, everything) must be in English. If Dutch, respond in Dutch. Never mix languages.
 
-Launch a Codex + Claude team. Scripts live in `__ENSEMBLE_DIR__/scripts/`. Runtime files namespaced under `/tmp/ensemble/<TEAM_ID>/`.
+Launch a Codex + Claude team. Scripts live in `__AGENT_FORGE_DIR__/scripts/`. Runtime files namespaced under `/tmp/agent-forge/<TEAM_ID>/`.
 
 ## Path Convention
-All collab artifacts live in `/tmp/ensemble/<TEAM_ID>/`:
+All collab artifacts live in `/tmp/agent-forge/<TEAM_ID>/`:
 - `messages.jsonl` — agent + agent-forge message log
 - `summary.txt` — written on disband by agent-forge service
 - `bridge.pid`, `bridge.log` — bridge process
@@ -43,7 +43,7 @@ TEAM_ID=$(cat /tmp/collab-team-id.txt)
 ### Step 2: Tell the user where the monitor is
 
 If `TMUX_YES`: "Team is live in the right tmux pane."
-If `TMUX_NO`: "`tmux attach -t ensemble-$TEAM_ID` — live TUI monitor (steer, disband, scroll)"
+If `TMUX_NO`: "`tmux attach -t agent-forge-$TEAM_ID` — live TUI monitor (steer, disband, scroll)"
 
 ### Step 3: Monitoring — the user MUST see the conversation
 
@@ -81,14 +81,14 @@ Use markdown bold for agent names. Show the FULL message content (up to 500 char
 
 **When done**, present structured summary + clean up:
 ```bash
-TEAM_ID="<id>" && RD="/tmp/ensemble/$TEAM_ID" && kill "$(cat "$RD/poller.pid" 2>/dev/null)" 2>/dev/null || true; kill "$(cat "$RD/bridge.pid" 2>/dev/null)" 2>/dev/null || true; tmux kill-session -t "ensemble-$TEAM_ID" 2>/dev/null || true
+TEAM_ID="<id>" && RD="/tmp/agent-forge/$TEAM_ID" && kill "$(cat "$RD/poller.pid" 2>/dev/null)" 2>/dev/null || true; kill "$(cat "$RD/bridge.pid" 2>/dev/null)" 2>/dev/null || true; tmux kill-session -t "agent-forge-$TEAM_ID" 2>/dev/null || true
 ```
 
 #### If `TMUX_YES`: background summary watcher
 
 Monitor visible in right pane. Wait in background:
 ```bash
-TEAM_ID="<id>" && RD="/tmp/ensemble/$TEAM_ID" && while [ ! -f "$RD/.finished" ] && [ ! -f "$RD/summary.txt" ]; do sleep 8; done && echo "COLLAB_COMPLETE" && cat "$RD/summary.txt" 2>/dev/null
+TEAM_ID="<id>" && RD="/tmp/agent-forge/$TEAM_ID" && while [ ! -f "$RD/.finished" ] && [ ! -f "$RD/summary.txt" ]; do sleep 8; done && echo "COLLAB_COMPLETE" && cat "$RD/summary.txt" 2>/dev/null
 ```
 Run with `run_in_background: true`, `timeout: 600000`.
 
@@ -98,7 +98,7 @@ When done: summarize + cleanup poller/bridge PIDs.
 - Agents run with auto-accept permissions (configured in agents.json: codex `--full-auto`, claude `--dangerously-skip-permissions`). They should NEVER ask for file write approval.
 - Do not modify project code during a collab session unless the user explicitly asks
 - Do not truncate or remove `messages.jsonl`
-- Multiple collabs can run simultaneously — each has own `/tmp/ensemble/<TEAM_ID>/` namespace
+- Multiple collabs can run simultaneously — each has own `/tmp/agent-forge/<TEAM_ID>/` namespace
 - `team-say.sh` uses `fcntl.flock` for atomic JSONL writes
 - `ensemble-bridge.sh` has single-instance guard, health check, exponential backoff
 - `.finished` and `summary.txt` are written by agent-forge service, NOT by scripts

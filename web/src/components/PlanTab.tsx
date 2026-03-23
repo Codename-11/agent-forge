@@ -40,7 +40,7 @@ export function PlanTab({ plan, teamId, isActive }: PlanTabProps) {
     setError(null)
 
     try {
-      const res = await fetch(`/api/ensemble/teams/${teamId}/plan/${step.id}`, {
+      const res = await fetch(`/api/agent-forge/teams/${teamId}/plan/${step.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: nextStatus }),

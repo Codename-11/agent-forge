@@ -126,7 +126,7 @@ export function Monitor({ team, messages, connected, error, onSend, onDisband, o
 
   // Fetch available agent programs from server info
   useEffect(() => {
-    fetch('/api/ensemble/info')
+    fetch('/api/agent-forge/info')
       .then(r => r.json())
       .then((data: EnsembleServerInfo) => {
         if (data.agents?.length) {
@@ -141,7 +141,7 @@ export function Monitor({ team, messages, connected, error, onSend, onDisband, o
     setAddAgentSubmitting(true)
     setAddAgentError(null)
     try {
-      const res = await fetch(`/api/ensemble/teams/${team.id}/agents`, {
+      const res = await fetch(`/api/agent-forge/teams/${team.id}/agents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ program: addAgentProgram }),
@@ -237,7 +237,7 @@ export function Monitor({ team, messages, connected, error, onSend, onDisband, o
                 <button
                   className="inline-flex items-center gap-1.5 rounded-md border border-green-500/20 px-3 py-1.5 text-xs font-medium text-green-400 transition-colors hover:bg-green-500/10"
                   onClick={() => {
-                    fetch(`/api/ensemble/teams/${team.id}/disband`, {
+                    fetch(`/api/agent-forge/teams/${team.id}/disband`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ reason: 'completed' }),
@@ -699,7 +699,7 @@ function QuickReference({ teamId }: { teamId: string }) {
   const [mcpServerPath, setMcpServerPath] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/ensemble/info')
+    fetch('/api/agent-forge/info')
       .then(r => r.json())
       .then((data: EnsembleServerInfo) => {
         if (data.mcpServerPath) setMcpServerPath(data.mcpServerPath)
@@ -709,18 +709,18 @@ function QuickReference({ teamId }: { teamId: string }) {
 
   const commands = [
     { label: 'New team', cmd: 'agent-forge run "task" --agents codex,claude' },
-    { label: 'Add agent', cmd: `curl -X POST http://localhost:23000/api/ensemble/teams/${teamId}/agents -H "Content-Type: application/json" -d '{"program":"claude"}'` },
+    { label: 'Add agent', cmd: `curl -X POST http://localhost:23000/api/agent-forge/teams/${teamId}/agents -H "Content-Type: application/json" -d '{"program":"claude"}'` },
     { label: 'Steer team', cmd: `agent-forge steer ${teamId.slice(0, 8)} "your message"` },
     { label: 'Monitor (CLI)', cmd: `agent-forge monitor ${teamId.slice(0, 8)}` },
     { label: 'Monitor (web)', cmd: `http://localhost:5173/#${teamId}` },
-    { label: 'Disband', cmd: `curl -X POST http://localhost:23000/api/ensemble/teams/${teamId}/disband` },
+    { label: 'Disband', cmd: `curl -X POST http://localhost:23000/api/agent-forge/teams/${teamId}/disband` },
   ]
 
   const joinCmd = mcpServerPath
-    ? `claude mcp add ensemble --env ENSEMBLE_TEAM_ID=${teamId} --env ENSEMBLE_AGENT_NAME=you --env ENSEMBLE_API_URL=http://localhost:23000 -- node ${mcpServerPath}`
+    ? `claude mcp add agent-forge --env AGENT_FORGE_TEAM_ID=${teamId} --env AGENT_FORGE_AGENT_NAME=you --env AGENT_FORGE_API_URL=http://localhost:23000 -- node ${mcpServerPath}`
     : null
 
-  const leaveCmd = 'claude mcp remove ensemble'
+  const leaveCmd = 'claude mcp remove agent-forge'
 
   function copyToClipboard(text: string, label: string) {
     navigator.clipboard.writeText(text).then(() => {

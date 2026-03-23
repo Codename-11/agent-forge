@@ -190,23 +190,23 @@ export function listUsers(): Array<{ id: string; username: string; displayName: 
 
 /**
  * Auto-create admin user if no users exist (first-run setup).
- * Uses ENSEMBLE_ADMIN_PASSWORD env var or generates a random password.
+ * Uses AGENT_FORGE_ADMIN_PASSWORD env var or generates a random password.
  */
 export function ensureAdminUser(): void {
   const db = getDb()
   const count = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number }
   if (count.count === 0) {
-    const envPassword = process.env.ENSEMBLE_ADMIN_PASSWORD
+    const envPassword = process.env.AGENT_FORGE_ADMIN_PASSWORD
     const defaultPassword = envPassword || crypto.randomBytes(9).toString('base64url').slice(0, 12)
     createUser('admin', defaultPassword, 'Administrator')
     // Update role to admin for the first user
     db.prepare('UPDATE users SET role = ? WHERE username = ?').run('admin', 'admin')
     console.log('[Agent-Forge] Created default admin user (username: admin)')
     if (envPassword) {
-      console.log('[Agent-Forge] Using password from ENSEMBLE_ADMIN_PASSWORD env var')
+      console.log('[Agent-Forge] Using password from AGENT_FORGE_ADMIN_PASSWORD env var')
     } else {
       console.log(`[Agent-Forge] Generated password: ${defaultPassword}`)
-      console.log('[Agent-Forge] Change it in Settings or set ENSEMBLE_ADMIN_PASSWORD env var')
+      console.log('[Agent-Forge] Change it in Settings or set AGENT_FORGE_ADMIN_PASSWORD env var')
     }
   }
 }

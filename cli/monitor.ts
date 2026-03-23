@@ -103,7 +103,7 @@ function getAgentStyle(name: string): AgentStyle {
 
 // ─────────────────────────── API BASE (for team picker / main) ───────────
 
-const API_BASE = process.env.ENSEMBLE_URL || 'http://localhost:23000'
+const API_BASE = process.env.AGENT_FORGE_URL || 'http://localhost:23000'
 
 // ─────────────────────────── TUI RENDERER ────────────────────────────────
 

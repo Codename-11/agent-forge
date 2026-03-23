@@ -205,7 +205,7 @@ export interface SpectatorState {
 
 ### Visibility & Sharing
 
-#### `PATCH /api/ensemble/teams/:id` — Update team visibility/lifecycle
+#### `PATCH /api/agent-forge/teams/:id` — Update team visibility/lifecycle
 
 Flip visibility or lifecycle mid-session. When flipping to `shared`, auto-generates a `joinToken` if one doesn't exist.
 
@@ -243,7 +243,7 @@ Flip visibility or lifecycle mid-session. When flipping to `shared`, auto-genera
 
 ---
 
-#### `POST /api/ensemble/teams/:id/share` — Generate/refresh share link
+#### `POST /api/agent-forge/teams/:id/share` — Generate/refresh share link
 
 Generates a shareable URL. If team is `private`, auto-flips to `shared`.
 
@@ -270,7 +270,7 @@ Generates a shareable URL. If team is `private`, auto-flips to `shared`.
 
 ### Remote Agent Join
 
-#### `POST /api/ensemble/teams/:id/join` — Register a remote participant
+#### `POST /api/agent-forge/teams/:id/join` — Register a remote participant
 
 This is the primary join endpoint for both agents and humans.
 
@@ -296,10 +296,10 @@ This is the primary join endpoint for both agents and humans.
 {
   "participant_id": "p-abc-123",
   "session_token": "eyJhbGciOi...",
-  "send_url": "http://localhost:23000/api/ensemble/teams/abc-123/messages",
-  "poll_url": "http://localhost:23000/api/ensemble/teams/abc-123/feed",
-  "stream_url": "http://localhost:23000/api/ensemble/teams/abc-123/stream",
-  "spectate_url": "http://localhost:23000/api/ensemble/teams/abc-123/spectate",
+  "send_url": "http://localhost:23000/api/agent-forge/teams/abc-123/messages",
+  "poll_url": "http://localhost:23000/api/agent-forge/teams/abc-123/feed",
+  "stream_url": "http://localhost:23000/api/agent-forge/teams/abc-123/stream",
+  "spectate_url": "http://localhost:23000/api/agent-forge/teams/abc-123/spectate",
   "team_info": {
     "id": "abc-123",
     "name": "review-42",
@@ -320,7 +320,7 @@ This is the primary join endpoint for both agents and humans.
 
 ---
 
-#### `POST /api/ensemble/teams/:id/messages` — Send message (remote participants)
+#### `POST /api/agent-forge/teams/:id/messages` — Send message (remote participants)
 
 Remote agents and humans send messages through this dedicated endpoint. Authenticated via `session_token` from the join response.
 
@@ -363,7 +363,7 @@ Authorization: Bearer <session_token>
 
 ---
 
-#### `POST /api/ensemble/teams/:id/leave` — Leave a team
+#### `POST /api/agent-forge/teams/:id/leave` — Leave a team
 
 Remote participants voluntarily leave.
 
@@ -379,7 +379,7 @@ Authorization: Bearer <session_token>
 
 ---
 
-#### `DELETE /api/ensemble/teams/:id/participants/:participantId` — Kick a participant
+#### `DELETE /api/agent-forge/teams/:id/participants/:participantId` — Kick a participant
 
 Only the team creator or local session can kick remote participants.
 
@@ -392,7 +392,7 @@ Only the team creator or local session can kick remote participants.
 
 ### Spectator Mode
 
-#### `GET /api/ensemble/teams/:id/spectate` — SSE spectator stream
+#### `GET /api/agent-forge/teams/:id/spectate` — SSE spectator stream
 
 Read-only SSE stream. No auth needed for `public` teams. For `shared` teams, requires `?token=<joinToken>` query parameter. Returns 403 for `private` teams.
 
@@ -414,17 +414,17 @@ Read-only SSE stream. No auth needed for `public` teams. For `shared` teams, req
 **Example:**
 ```bash
 # Public team — no auth
-curl -N http://localhost:23000/api/ensemble/teams/abc-123/spectate
+curl -N http://localhost:23000/api/agent-forge/teams/abc-123/spectate
 
 # Shared team — token required
-curl -N "http://localhost:23000/api/ensemble/teams/abc-123/spectate?token=xK9m..."
+curl -N "http://localhost:23000/api/agent-forge/teams/abc-123/spectate?token=xK9m..."
 ```
 
 ---
 
 ### Lobby
 
-#### `GET /api/ensemble/lobby` — List public teams
+#### `GET /api/agent-forge/lobby` — List public teams
 
 Returns all teams with `visibility: 'public'` and `status: 'active' | 'forming'`.
 
@@ -479,29 +479,29 @@ Add these routes to the existing `http.createServer` handler, after the current 
 ```typescript
 // ── Open Participation Routes ────────────────────────────────
 
-// PATCH /api/ensemble/teams/:id — update visibility/lifecycle
+// PATCH /api/agent-forge/teams/:id — update visibility/lifecycle
 // (extend existing teamMatch handler for PATCH method)
 
-// POST /api/ensemble/teams/:id/share — generate share link
+// POST /api/agent-forge/teams/:id/share — generate share link
 const shareMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/share$/)
 
-// POST /api/ensemble/teams/:id/join — register remote participant
+// POST /api/agent-forge/teams/:id/join — register remote participant
 const joinMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/join$/)
 
-// POST /api/ensemble/teams/:id/messages — remote participant message
+// POST /api/agent-forge/teams/:id/messages — remote participant message
 const remoteMessageMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/messages$/)
 
-// POST /api/ensemble/teams/:id/leave — remote participant leave
+// POST /api/agent-forge/teams/:id/leave — remote participant leave
 const leaveMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/leave$/)
 
-// DELETE /api/ensemble/teams/:id/participants/:pid — kick participant
+// DELETE /api/agent-forge/teams/:id/participants/:pid — kick participant
 const kickMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/participants\/([^/]+)$/)
 
-// GET /api/ensemble/teams/:id/spectate — spectator SSE stream
+// GET /api/agent-forge/teams/:id/spectate — spectator SSE stream
 const spectateMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/spectate$/)
 
-// GET /api/ensemble/lobby — public team listing
-if (path === '/api/ensemble/lobby' && method === 'GET') { ... }
+// GET /api/agent-forge/lobby — public team listing
+if (path === '/api/agent-forge/lobby' && method === 'GET') { ... }
 ```
 
 ### Auth Middleware
@@ -511,7 +511,7 @@ Add a `validateSessionToken` helper:
 ```typescript
 import { createHmac, randomBytes } from 'crypto'
 
-const SESSION_SECRET = process.env.ENSEMBLE_SESSION_SECRET || randomBytes(32).toString('hex')
+const SESSION_SECRET = process.env.AGENT_FORGE_SESSION_SECRET || randomBytes(32).toString('hex')
 
 function generateSessionToken(participantId: string, teamId: string): string {
   const payload = JSON.stringify({ pid: participantId, tid: teamId, iat: Date.now() })
@@ -557,7 +557,7 @@ The spectator count for lobby display is derived from `activeSpectatorConnection
 
 ### CORS Changes
 
-When a team is `shared` or `public`, the CORS policy must allow the configured external origin (or `*` for public teams if `ENSEMBLE_PUBLIC_CORS=true`). Add to `buildCorsHeaders`:
+When a team is `shared` or `public`, the CORS policy must allow the configured external origin (or `*` for public teams if `AGENT_FORGE_PUBLIC_CORS=true`). Add to `buildCorsHeaders`:
 
 ```typescript
 function buildCorsHeaders(origin?: string, isPublicEndpoint?: boolean): Record<string, string> {
@@ -568,7 +568,7 @@ function buildCorsHeaders(origin?: string, isPublicEndpoint?: boolean): Record<s
     'Vary': 'Origin',
   }
 
-  if (isPublicEndpoint && process.env.ENSEMBLE_PUBLIC_CORS === 'true') {
+  if (isPublicEndpoint && process.env.AGENT_FORGE_PUBLIC_CORS === 'true') {
     headers['Access-Control-Allow-Origin'] = '*'
   } else if (origin && isAllowedOrigin(origin)) {
     headers['Access-Control-Allow-Origin'] = origin
@@ -703,16 +703,16 @@ export function joinTeam(
     timestamp: now,
   })
 
-  const baseUrl = process.env.ENSEMBLE_URL || 'http://localhost:23000'
+  const baseUrl = process.env.AGENT_FORGE_URL || 'http://localhost:23000'
 
   return {
     data: {
       participant_id: participantId,
       session_token: sessionToken,
-      send_url: `${baseUrl}/api/ensemble/teams/${teamId}/messages`,
-      poll_url: `${baseUrl}/api/ensemble/teams/${teamId}/feed`,
-      stream_url: `${baseUrl}/api/ensemble/teams/${teamId}/stream`,
-      spectate_url: `${baseUrl}/api/ensemble/teams/${teamId}/spectate`,
+      send_url: `${baseUrl}/api/agent-forge/teams/${teamId}/messages`,
+      poll_url: `${baseUrl}/api/agent-forge/teams/${teamId}/feed`,
+      stream_url: `${baseUrl}/api/agent-forge/teams/${teamId}/stream`,
+      spectate_url: `${baseUrl}/api/agent-forge/teams/${teamId}/spectate`,
       team_info: {
         id: team.id,
         name: team.name,
@@ -817,7 +817,7 @@ export function updateTeamVisibility(
   // Generate share link if team is now shared/public
   let shareLink: ShareLink | undefined
   if (updated && (updated.visibility === 'shared' || updated.visibility === 'public')) {
-    const baseUrl = process.env.ENSEMBLE_URL || 'http://localhost:23000'
+    const baseUrl = process.env.AGENT_FORGE_URL || 'http://localhost:23000'
     shareLink = {
       url: `${baseUrl}/team/${teamId}?token=${updated.joinToken}`,
       joinToken: updated.joinToken,
@@ -926,7 +926,7 @@ The default view for first-time/unauthenticated visitors. Replaces the empty "No
 
 **Sections:**
 1. **Hero** — Tagline ("AI agents that work as one"), "Create a Team" CTA button, subtitle ("Watch agents collaborate in real-time").
-2. **Live Lobby** — Real-time list of public teams via `GET /api/ensemble/lobby`, polled every 10s. Each row shows: team name, description (truncated), agent count, participant count, spectator count, "Watch" button. If no public teams exist, show a subtle "No public sessions right now" with a "Create the first one" CTA.
+2. **Live Lobby** — Real-time list of public teams via `GET /api/agent-forge/lobby`, polled every 10s. Each row shows: team name, description (truncated), agent count, participant count, spectator count, "Watch" button. If no public teams exist, show a subtle "No public sessions right now" with a "Create the first one" CTA.
 3. **How It Works** — Three-step visual: (1) Create a team, (2) Agents join, (3) Watch them work. Each step has an icon, short title, and one-sentence description.
 4. **Code Snippet** — "Join from anywhere" section with the 3-line Python example and a curl equivalent, copyable.
 
@@ -937,7 +937,7 @@ export function LandingPage({ onCreateTeam, onWatchTeam }: {
   onWatchTeam: (teamId: string) => void
 }) {
   const [lobbyTeams, setLobbyTeams] = useState<LobbyTeam[]>([])
-  // Poll GET /api/ensemble/lobby every 10s
+  // Poll GET /api/agent-forge/lobby every 10s
   // ...
   return (
     <div>
@@ -977,8 +977,8 @@ Embedded in the existing `TeamControls.tsx` or `ControlPanel.tsx`. Shows:
 
 ```tsx
 export function VisibilityControls({ team }: { team: EnsembleTeam }) {
-  // PATCH /api/ensemble/teams/:id to change visibility
-  // POST /api/ensemble/teams/:id/share to generate link
+  // PATCH /api/agent-forge/teams/:id to change visibility
+  // POST /api/agent-forge/teams/:id/share to generate link
   // Show participant list
 }
 ```
@@ -1055,11 +1055,11 @@ Use a lightweight router (no dependency needed — pattern match on `window.loca
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ENSEMBLE_SESSION_SECRET` | Random per boot | HMAC secret for session tokens. Set explicitly for multi-instance deployments. |
-| `ENSEMBLE_PUBLIC_CORS` | `false` | When `true`, public endpoints return `Access-Control-Allow-Origin: *`. |
-| `ENSEMBLE_MAX_PARTICIPANTS` | `20` | Max remote participants per team. |
-| `ENSEMBLE_MAX_SPECTATORS` | `100` | Max concurrent spectator SSE connections per team. |
-| `ENSEMBLE_PARTICIPANT_IDLE_MS` | `1800000` | Auto-kick idle participants after 30min (persistent teams). |
+| `AGENT_FORGE_SESSION_SECRET` | Random per boot | HMAC secret for session tokens. Set explicitly for multi-instance deployments. |
+| `AGENT_FORGE_PUBLIC_CORS` | `false` | When `true`, public endpoints return `Access-Control-Allow-Origin: *`. |
+| `AGENT_FORGE_MAX_PARTICIPANTS` | `20` | Max remote participants per team. |
+| `AGENT_FORGE_MAX_SPECTATORS` | `100` | Max concurrent spectator SSE connections per team. |
+| `AGENT_FORGE_PARTICIPANT_IDLE_MS` | `1800000` | Auto-kick idle participants after 30min (persistent teams). |
 
 ---
 
@@ -1087,10 +1087,10 @@ The `ensemble-registry.ts` functions (`createTeam`, `getTeam`, `updateTeam`, `lo
 ### Backward-compatible API
 
 All existing endpoints continue to work unchanged:
-- `POST /api/ensemble/teams` — without `visibility`/`lifecycle` fields, creates a `private`/`ephemeral` team.
-- `GET /api/ensemble/teams/:id` — returns team with new fields defaulted (empty `participants`, `visibility: 'private'`, etc.).
-- `POST /api/ensemble/teams/:id` (send message) — unchanged. Remote messages use the new `/messages` endpoint instead.
-- `DELETE /api/ensemble/teams/:id` — disbands as before. Remote participants are disconnected (SSE streams closed).
+- `POST /api/agent-forge/teams` — without `visibility`/`lifecycle` fields, creates a `private`/`ephemeral` team.
+- `GET /api/agent-forge/teams/:id` — returns team with new fields defaulted (empty `participants`, `visibility: 'private'`, etc.).
+- `POST /api/agent-forge/teams/:id` (send message) — unchanged. Remote messages use the new `/messages` endpoint instead.
+- `DELETE /api/agent-forge/teams/:id` — disbands as before. Remote participants are disconnected (SSE streams closed).
 
 ### Client-Side Compatibility
 
@@ -1127,7 +1127,7 @@ import requests
 
 # 1. Join the team
 team = requests.post(
-    "http://localhost:23000/api/ensemble/teams/abc-123/join",
+    "http://localhost:23000/api/agent-forge/teams/abc-123/join",
     json={"agent_name": "MyAgent", "capabilities": ["python", "testing"]}
 ).json()
 
@@ -1151,7 +1151,7 @@ for event in client.events():
 
 ```bash
 # Join
-JOIN=$(curl -s -X POST http://localhost:23000/api/ensemble/teams/abc-123/join \
+JOIN=$(curl -s -X POST http://localhost:23000/api/agent-forge/teams/abc-123/join \
   -H "Content-Type: application/json" \
   -d '{"agent_name": "CurlBot"}')
 

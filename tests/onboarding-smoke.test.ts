@@ -63,9 +63,9 @@ describe('onboarding smoke test', () => {
     port = await getFreePort()
     baseUrl = `http://127.0.0.1:${port}`
 
-    process.env.ENSEMBLE_DATA_DIR = tempRoot
-    process.env.ENSEMBLE_PORT = String(port)
-    process.env.ENSEMBLE_URL = baseUrl
+    process.env.AGENT_FORGE_DATA_DIR = tempRoot
+    process.env.AGENT_FORGE_PORT = String(port)
+    process.env.AGENT_FORGE_URL = baseUrl
 
     vi.resetModules()
     vi.doMock('../lib/agent-spawner', () => ({
@@ -113,9 +113,9 @@ describe('onboarding smoke test', () => {
     const tsxPath = path.resolve(process.cwd(), 'node_modules', '.bin', tsxBin)
     const cliEnv = {
       ...process.env,
-      ENSEMBLE_URL: baseUrl,
-      ENSEMBLE_PORT: String(port),
-      ENSEMBLE_DATA_DIR: tempRoot,
+      AGENT_FORGE_URL: baseUrl,
+      AGENT_FORGE_PORT: String(port),
+      AGENT_FORGE_DATA_DIR: tempRoot,
     }
 
     const healthResponse = await fetch(`${baseUrl}/api/v1/health`)
@@ -134,7 +134,7 @@ describe('onboarding smoke test', () => {
     const teamsBeforeOutput = (await execFileAsync(tsxPath, [cliPath, 'teams'], execOpts)).stdout
     expect(teamsBeforeOutput).toContain('No teams found')
 
-    const createResponse = await fetch(`${baseUrl}/api/ensemble/teams`, {
+    const createResponse = await fetch(`${baseUrl}/api/agent-forge/teams`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

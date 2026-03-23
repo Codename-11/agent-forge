@@ -97,9 +97,9 @@ Model Context Protocol (MCP) stdio server that gives agents native tools for tea
 
 Runs as a child process of each agent. Configured via environment variables:
 
-- `ENSEMBLE_TEAM_ID` -- which team the agent belongs to
-- `ENSEMBLE_AGENT_NAME` -- the agent's display name
-- `ENSEMBLE_API_URL` -- API base URL (default: `http://localhost:23000`)
+- `AGENT_FORGE_TEAM_ID` -- which team the agent belongs to
+- `AGENT_FORGE_AGENT_NAME` -- the agent's display name
+- `AGENT_FORGE_API_URL` -- API base URL (default: `http://localhost:23000`)
 
 Implements the MCP JSON-RPC protocol (version `2024-11-05`) over stdin/stdout.
 
@@ -146,8 +146,8 @@ The correct runtime is auto-selected based on `os.platform()`.
 
 File-based persistence layer:
 
-- **Teams** stored in `~/.ensemble/ensemble/teams.json` (JSON array with file-level locking via mkdir lock)
-- **Messages** stored per-team in JSONL format at `~/.ensemble/ensemble/messages/<teamId>.jsonl`
+- **Teams** stored in `~/.agent-forge/ensemble/teams.json` (JSON array with file-level locking via mkdir lock)
+- **Messages** stored per-team in JSONL format at `~/.agent-forge/ensemble/messages/<teamId>.jsonl`
 - Supports concurrent access with stale lock detection and retry
 
 ### Agent Watchdog (`lib/agent-watchdog.ts`)
@@ -164,7 +164,7 @@ Background monitor that prevents agent stalls:
 Shared path contract for runtime file isolation. All ephemeral files live under:
 
 ```
-<ENSEMBLE_RUNTIME_DIR>/          # default: <os.tmpdir()>/ensemble/
+<AGENT_FORGE_RUNTIME_DIR>/          # default: <os.tmpdir()>/agent-forge/
   <teamId>/
     messages.jsonl               # Full message log (used by bridge)
     summary.txt                  # Written on disband
@@ -202,7 +202,7 @@ Phase transitions are detected by pattern-matching agent messages for completion
 Cross-platform Node.js process that bridges file-based agent communication with the HTTP API:
 
 - Watches `messages.jsonl` for new entries
-- POSTs each new message to `POST /api/ensemble/teams/:id`
+- POSTs each new message to `POST /api/agent-forge/teams/:id`
 - Exponential backoff on failures, skip on 4xx, retry on 5xx
 - Single-instance guard via PID file
 
@@ -231,7 +231,7 @@ Agent A calls team_say("Found a bug in auth.ts")
 MCP Server (child process of Agent A)
        |
        v
-POST /api/ensemble/teams/:id  (HTTP to server)
+POST /api/agent-forge/teams/:id  (HTTP to server)
        |
        v
 ensemble-service.sendTeamMessage()
@@ -261,7 +261,7 @@ Appends JSON line to messages.jsonl (atomic write)
 ensemble-bridge.mjs detects new line
        |
        v
-POST /api/ensemble/teams/:id  (HTTP)
+POST /api/agent-forge/teams/:id  (HTTP)
        |
        v
 ensemble-service routes to Agent B's session
@@ -270,7 +270,7 @@ ensemble-service routes to Agent B's session
 Agent B runs: team-read.sh <teamId>
        |
        v
-GET /api/ensemble/teams/:id/feed  (HTTP)
+GET /api/agent-forge/teams/:id/feed  (HTTP)
 ```
 
 ### Web SPA Real-Time Flow
@@ -279,7 +279,7 @@ GET /api/ensemble/teams/:id/feed  (HTTP)
 Browser opens SSE connection
        |
        v
-GET /api/ensemble/teams/:id/stream
+GET /api/agent-forge/teams/:id/stream
        |
        v
 Server sends "init" event (full state)
@@ -341,7 +341,7 @@ ensemble/
 |   |-- cli-style.ts               # Terminal color/style helpers
 |   |-- collab-paths.ts            # Runtime file path contract
 |   |-- ensemble-client.ts         # HTTP client for Agent-Forge API
-|   |-- ensemble-paths.ts          # Data directory paths (~/.ensemble/)
+|   |-- ensemble-paths.ts          # Data directory paths (~/.agent-forge/)
 |   |-- ensemble-registry.ts       # JSON/JSONL persistence with locking
 |   |-- hosts-config.ts            # Multi-host discovery
 |   |-- pty-session-manager.ts     # Windows node-pty runtime
@@ -392,12 +392,12 @@ ensemble/
 
 ## Persistence Architecture
 
-### Data Directory (`~/.ensemble/`)
+### Data Directory (`~/.agent-forge/`)
 
-Controlled by `ENSEMBLE_DATA_DIR` env var. Contains durable state:
+Controlled by `AGENT_FORGE_DATA_DIR` env var. Contains durable state:
 
 ```
-~/.ensemble/
+~/.agent-forge/
   ensemble/
     teams.json              # Array of all EnsembleTeam objects
     messages/
@@ -405,13 +405,13 @@ Controlled by `ENSEMBLE_DATA_DIR` env var. Contains durable state:
   hosts.json                # Multi-host configuration (optional)
 ```
 
-### Runtime Directory (`<os.tmpdir()>/ensemble/`)
+### Runtime Directory (`<os.tmpdir()>/agent-forge/`)
 
-Controlled by `ENSEMBLE_RUNTIME_DIR` env var. Contains ephemeral state:
+Controlled by `AGENT_FORGE_RUNTIME_DIR` env var. Contains ephemeral state:
 
 ```
-/tmp/ensemble/              # Linux/macOS
-%TEMP%/ensemble/            # Windows
+/tmp/agent-forge/              # Linux/macOS
+%TEMP%/agent-forge/            # Windows
   <teamId>/
     messages.jsonl           # Duplicate for bridge process
     prompts/<agent>.txt      # Initial prompts
@@ -435,7 +435,7 @@ Agent-Forge supports distributing agents across multiple machines:
 2. When creating a team, each agent can specify a `hostId`
 3. Local agents use the runtime directly (tmux/pty)
 4. Remote agents are spawned via HTTP calls to the remote host's Agent-Forge server
-5. Messages to remote agents are delivered via `POST /api/ensemble/sessions/:name/input`
+5. Messages to remote agents are delivered via `POST /api/agent-forge/sessions/:name/input`
 6. The self-host is auto-detected via hostname and local IP matching
 
 ---

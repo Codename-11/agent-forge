@@ -15,17 +15,17 @@ import { SpectatorView } from './components/SpectatorView'
 import { ReplayView } from './components/ReplayView'
 import { useEnsemble } from './hooks/useEnsemble'
 
-// Landing page state — fetched from server /api/ensemble/info
+// Landing page state — fetched from server /api/agent-forge/info
 let _landingEnabled: boolean | null = null
 function isLandingEnabled(): boolean {
   if (_landingEnabled !== null) return _landingEnabled
   // Check meta tag as fast fallback (set by server in HTML template)
-  const meta = document.querySelector('meta[name="ensemble-landing"]')
+  const meta = document.querySelector('meta[name="agent-forge-landing"]')
   if (meta) return meta.getAttribute('content') !== 'false'
   return true
 }
 // Fetch from server on load (overrides meta tag)
-fetch('/api/ensemble/info').then(r => r.ok ? r.json() : null).then(data => {
+fetch('/api/agent-forge/info').then(r => r.ok ? r.json() : null).then(data => {
   if (data?.landingPageEnabled !== undefined) _landingEnabled = data.landingPageEnabled
 }).catch(() => {})
 

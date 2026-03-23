@@ -57,7 +57,7 @@ export function TeamListView({ onServerStatus }: TeamListViewProps) {
 
   const fetchTeams = useCallback(async () => {
     try {
-      const res = await fetch('/api/ensemble/teams')
+      const res = await fetch('/api/agent-forge/teams')
       if (!res.ok) {
         setError(`Failed to load teams: ${res.status}`)
         onServerStatus?.(false, false)
@@ -85,14 +85,14 @@ export function TeamListView({ onServerStatus }: TeamListViewProps) {
   const handleDisband = async (teamId: string, teamName: string) => {
     if (!confirm(`Disband "${teamName}"?`)) return
     try {
-      await fetch(`/api/ensemble/teams/${teamId}/disband`, { method: 'POST' })
+      await fetch(`/api/agent-forge/teams/${teamId}/disband`, { method: 'POST' })
       void fetchTeams()
     } catch { /* ignore */ }
   }
 
   const handleClone = async (teamId: string) => {
     try {
-      const res = await fetch(`/api/ensemble/teams/${teamId}/clone`, {
+      const res = await fetch(`/api/agent-forge/teams/${teamId}/clone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ seedMessages: false }),

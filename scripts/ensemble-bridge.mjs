@@ -20,8 +20,8 @@ if (!teamId) {
   process.exit(1)
 }
 
-const runtimeRoot = process.env.ENSEMBLE_RUNTIME_DIR
-  || path.join(os.tmpdir(), 'ensemble')
+const runtimeRoot = process.env.AGENT_FORGE_RUNTIME_DIR
+  || path.join(os.tmpdir(), 'agent-forge')
 const runtimeDir = path.join(runtimeRoot, teamId)
 const messagesFile = path.join(runtimeDir, 'messages.jsonl')
 const pidFile = path.join(runtimeDir, 'bridge.pid')
@@ -81,7 +81,7 @@ function postMessage(msg) {
       timestamp: msg.timestamp || '',
     })
 
-    const url = new URL(`${API}/api/ensemble/teams/${teamId}`)
+    const url = new URL(`${API}/api/agent-forge/teams/${teamId}`)
     const req = http.request({
       hostname: url.hostname,
       port: url.port,

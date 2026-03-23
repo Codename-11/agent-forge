@@ -6,15 +6,15 @@ import type { EnsembleTeam, EnsembleMessage, CreateTeamRequest } from '../types/
 import { getEnsembleRegistryDir } from './ensemble-paths'
 import { collabMessagesFile } from './collab-paths'
 
-const ENSEMBLE_DIR = getEnsembleRegistryDir()
-const TEAMS_FILE = path.join(ENSEMBLE_DIR, 'teams.json')
-const MESSAGES_DIR = path.join(ENSEMBLE_DIR, 'messages')
+const REGISTRY_DIR = getEnsembleRegistryDir()
+const TEAMS_FILE = path.join(REGISTRY_DIR, 'teams.json')
+const MESSAGES_DIR = path.join(REGISTRY_DIR, 'messages')
 const TEAMS_LOCK_DIR = `${TEAMS_FILE}.lock`
 const LOCK_STALE_MS = 10_000
 const LOCK_TIMEOUT_MS = 5_000
 
 function getCreatedBy(): string {
-  return process.env.ENSEMBLE_CREATED_BY?.trim()
+  return process.env.AGENT_FORGE_CREATED_BY?.trim()
     || process.env.USER
     || process.env.LOGNAME
     || os.hostname()
@@ -29,18 +29,18 @@ function sleepSync(ms: number): void {
 }
 
 function readTeamsFile(): EnsembleTeam[] {
-  ensureDir(ENSEMBLE_DIR)
+  ensureDir(REGISTRY_DIR)
   if (!fs.existsSync(TEAMS_FILE)) return []
   return JSON.parse(fs.readFileSync(TEAMS_FILE, 'utf-8'))
 }
 
 function writeTeamsFile(teams: EnsembleTeam[]): void {
-  ensureDir(ENSEMBLE_DIR)
+  ensureDir(REGISTRY_DIR)
   fs.writeFileSync(TEAMS_FILE, JSON.stringify(teams, null, 2))
 }
 
 function acquireTeamsLock(): () => void {
-  ensureDir(ENSEMBLE_DIR)
+  ensureDir(REGISTRY_DIR)
   const startedAt = Date.now()
 
   for (;;) {

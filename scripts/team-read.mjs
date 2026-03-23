@@ -9,14 +9,14 @@
 import http from 'http'
 
 const [,, teamId] = process.argv
-const API = process.env.ENSEMBLE_URL || 'http://localhost:23000'
+const API = process.env.AGENT_FORGE_URL || 'http://localhost:23000'
 
 if (!teamId) {
   console.error('Usage: node team-read.mjs <team-id>')
   process.exit(1)
 }
 
-const url = `${API}/api/ensemble/teams/${teamId}/feed`
+const url = `${API}/api/agent-forge/teams/${teamId}/feed`
 
 http.get(url, { timeout: 5000 }, (res) => {
   let data = ''

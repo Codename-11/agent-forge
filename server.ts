@@ -38,8 +38,8 @@ import {
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = nodePath.dirname(__filename)
 
-const PORT = parseInt(process.env.ENSEMBLE_PORT || process.env.ORCHESTRA_PORT || '23000', 10)
-const HOST = process.env.ENSEMBLE_HOST || '127.0.0.1'
+const PORT = parseInt(process.env.AGENT_FORGE_PORT || '23000', 10)
+const HOST = process.env.AGENT_FORGE_HOST || '127.0.0.1'
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 600
 const DEFAULT_CORS_ORIGIN_PATTERNS = [
@@ -162,7 +162,7 @@ setInterval(() => {
 }, 60_000)
 
 function getAllowedCorsOrigins(): string[] {
-  const configured = process.env.ENSEMBLE_CORS_ORIGIN?.trim()
+  const configured = process.env.AGENT_FORGE_CORS_ORIGIN?.trim()
   if (!configured) return []
 
   return configured
@@ -188,7 +188,7 @@ function buildCorsHeaders(origin?: string, isPublicEndpoint?: boolean): Record<s
   if (origin && isAllowedOrigin(origin)) {
     headers['Access-Control-Allow-Origin'] = origin
     headers['Access-Control-Allow-Credentials'] = 'true'
-  } else if (isPublicEndpoint && process.env.ENSEMBLE_PUBLIC_CORS === 'true') {
+  } else if (isPublicEndpoint && process.env.AGENT_FORGE_PUBLIC_CORS === 'true') {
     headers['Access-Control-Allow-Origin'] = '*'
     // Do NOT set credentials with wildcard origin
   }
@@ -234,7 +234,7 @@ async function readBody(req: http.IncomingMessage): Promise<string> {
 
 function getClientIp(req: http.IncomingMessage): string {
   // Only trust X-Forwarded-For when explicitly configured behind a known proxy
-  if (process.env.ENSEMBLE_TRUST_PROXY === 'true') {
+  if (process.env.AGENT_FORGE_TRUST_PROXY === 'true') {
     const forwardedFor = req.headers['x-forwarded-for']
     if (typeof forwardedFor === 'string') {
       const firstIp = forwardedFor.split(',')[0]?.trim()
@@ -289,8 +289,8 @@ const server = http.createServer(async (req, res) => {
     // Auth endpoints
     // -----------------------------------------------------------------------
 
-    // POST /api/ensemble/auth/login — authenticate and set session cookie
-    if (path === '/api/ensemble/auth/login' && method === 'POST') {
+    // POST /api/agent-forge/auth/login — authenticate and set session cookie
+    if (path === '/api/agent-forge/auth/login' && method === 'POST') {
       if (isLoginRateLimited(getClientIp(req))) {
         return json(res, { error: 'Too many login attempts. Try again later.' }, 429, origin)
       }
@@ -324,8 +324,8 @@ const server = http.createServer(async (req, res) => {
       )
     }
 
-    // POST /api/ensemble/auth/logout — destroy session and clear cookie
-    if (path === '/api/ensemble/auth/logout' && method === 'POST') {
+    // POST /api/agent-forge/auth/logout — destroy session and clear cookie
+    if (path === '/api/agent-forge/auth/logout' && method === 'POST') {
       const cookies = parseCookies(req.headers.cookie || '')
       const token = cookies['agent-forge-session']
       if (token) {
@@ -340,8 +340,8 @@ const server = http.createServer(async (req, res) => {
       )
     }
 
-    // POST /api/ensemble/auth/logout-all — destroy all sessions for current user
-    if (path === '/api/ensemble/auth/logout-all' && method === 'POST') {
+    // POST /api/agent-forge/auth/logout-all — destroy all sessions for current user
+    if (path === '/api/agent-forge/auth/logout-all' && method === 'POST') {
       const user = getAuthUser(req)
       if (!user) return json(res, { error: 'Not authenticated' }, 401, origin)
       destroyAllUserSessions(user.userId)
@@ -354,8 +354,8 @@ const server = http.createServer(async (req, res) => {
       )
     }
 
-    // GET /api/ensemble/auth/me — return current user from session cookie
-    if (path === '/api/ensemble/auth/me' && method === 'GET') {
+    // GET /api/agent-forge/auth/me — return current user from session cookie
+    if (path === '/api/agent-forge/auth/me' && method === 'GET') {
       const user = getAuthUser(req)
       if (!user) {
         return json(res, { error: 'Not authenticated' }, 401, origin)
@@ -363,8 +363,8 @@ const server = http.createServer(async (req, res) => {
       return json(res, { user: { id: user.userId, username: user.username, displayName: user.displayName, role: user.role } }, 200, origin)
     }
 
-    // POST /api/ensemble/auth/register — create new user (admin only, or first user)
-    if (path === '/api/ensemble/auth/register' && method === 'POST') {
+    // POST /api/agent-forge/auth/register — create new user (admin only, or first user)
+    if (path === '/api/agent-forge/auth/register' && method === 'POST') {
       // Allow first user creation without auth; otherwise require admin
       const existingUsers = listUsers()
       if (existingUsers.length > 0) {
@@ -412,7 +412,7 @@ const server = http.createServer(async (req, res) => {
     // -----------------------------------------------------------------------
 
     // Server info — cwd, available agents, recent project dirs
-    if (path === '/api/ensemble/info' && method === 'GET') {
+    if (path === '/api/agent-forge/info' && method === 'GET') {
       if (!requireAuth(req, res, origin)) return
 
       const { loadAgentsConfig } = await import('./lib/agent-config')
@@ -431,9 +431,9 @@ const server = http.createServer(async (req, res) => {
 
       const mcpServerPath = nodePath.resolve(__dirname, 'mcp', 'ensemble-mcp-server.mjs')
 
-      // Scan ENSEMBLE_PROJECTS_DIR for project subdirectories
+      // Scan AGENT_FORGE_PROJECTS_DIR for project subdirectories
       const projectDirectories: Array<{ name: string; path: string }> = []
-      const projectsDir = process.env.ENSEMBLE_PROJECTS_DIR
+      const projectsDir = process.env.AGENT_FORGE_PROJECTS_DIR
       if (projectsDir) {
         try {
           const entries = fs.readdirSync(projectsDir, { withFileTypes: true })
@@ -447,7 +447,7 @@ const server = http.createServer(async (req, res) => {
           }
           projectDirectories.sort((a, b) => a.name.localeCompare(b.name))
         } catch {
-          // ENSEMBLE_PROJECTS_DIR not readable — return empty array
+          // AGENT_FORGE_PROJECTS_DIR not readable — return empty array
         }
       }
 
@@ -470,8 +470,8 @@ const server = http.createServer(async (req, res) => {
     // Server configuration endpoints
     // -----------------------------------------------------------------------
 
-    // GET /api/ensemble/config — return current server configuration
-    if (path === '/api/ensemble/config' && method === 'GET') {
+    // GET /api/agent-forge/config — return current server configuration
+    if (path === '/api/agent-forge/config' && method === 'GET') {
       if (!requireAuth(req, res, origin)) return
 
       const { loadAgentsConfig: loadAgents } = await import('./lib/agent-config')
@@ -479,16 +479,16 @@ const server = http.createServer(async (req, res) => {
       const { getCollabRuntimeRoot } = await import('./lib/collab-paths')
       const { DEFAULT_NUDGE_MS, DEFAULT_STALL_MS, DEFAULT_POLL_INTERVAL_MS } = await import('./lib/agent-watchdog')
       const agentsConfig = loadAgents()
-      const startTime = (server as unknown as { _ensembleStartTime?: number })._ensembleStartTime ?? Date.now()
+      const startTime = (server as unknown as { _agentForgeStartTime?: number })._agentForgeStartTime ?? Date.now()
 
       return json(res, {
         port: PORT,
         host: HOST,
-        commMode: process.env.ENSEMBLE_COMM_MODE || 'mcp',
-        autoSummary: process.env.ENSEMBLE_AUTO_SUMMARY !== 'false',
+        commMode: process.env.AGENT_FORGE_COMM_MODE || 'mcp',
+        autoSummary: process.env.AGENT_FORGE_AUTO_SUMMARY !== 'false',
         watchdog: {
-          nudgeMs: parseInt(process.env.ENSEMBLE_WATCHDOG_NUDGE_MS || '', 10) || DEFAULT_NUDGE_MS,
-          stallMs: parseInt(process.env.ENSEMBLE_WATCHDOG_STALL_MS || '', 10) || DEFAULT_STALL_MS,
+          nudgeMs: parseInt(process.env.AGENT_FORGE_WATCHDOG_NUDGE_MS || '', 10) || DEFAULT_NUDGE_MS,
+          stallMs: parseInt(process.env.AGENT_FORGE_WATCHDOG_STALL_MS || '', 10) || DEFAULT_STALL_MS,
           pollMs: DEFAULT_POLL_INTERVAL_MS,
         },
         completion: {
@@ -507,8 +507,8 @@ const server = http.createServer(async (req, res) => {
       }, 200, origin)
     }
 
-    // PATCH /api/ensemble/config — update runtime-modifiable settings
-    if (path === '/api/ensemble/config' && method === 'PATCH') {
+    // PATCH /api/agent-forge/config — update runtime-modifiable settings
+    if (path === '/api/agent-forge/config' && method === 'PATCH') {
       if (!requireAuth(req, res, origin)) return
 
       let body: Record<string, unknown>
@@ -524,7 +524,7 @@ const server = http.createServer(async (req, res) => {
       if ('commMode' in body) {
         const val = body.commMode
         if (val === 'mcp' || val === 'shell') {
-          process.env.ENSEMBLE_COMM_MODE = val
+          process.env.AGENT_FORGE_COMM_MODE = val
           updated.commMode = val
         } else {
           return json(res, { error: 'Bad Request: commMode must be "mcp" or "shell"' }, 400, origin)
@@ -535,7 +535,7 @@ const server = http.createServer(async (req, res) => {
       if ('autoSummary' in body) {
         const val = body.autoSummary
         if (typeof val === 'boolean') {
-          process.env.ENSEMBLE_AUTO_SUMMARY = val ? 'true' : 'false'
+          process.env.AGENT_FORGE_AUTO_SUMMARY = val ? 'true' : 'false'
           updated.autoSummary = val
         } else {
           return json(res, { error: 'Bad Request: autoSummary must be a boolean' }, 400, origin)
@@ -546,7 +546,7 @@ const server = http.createServer(async (req, res) => {
       if ('watchdogNudgeMs' in body) {
         const val = Number(body.watchdogNudgeMs)
         if (Number.isFinite(val) && val > 0) {
-          process.env.ENSEMBLE_WATCHDOG_NUDGE_MS = String(val)
+          process.env.AGENT_FORGE_WATCHDOG_NUDGE_MS = String(val)
           updated.watchdogNudgeMs = val
         } else {
           return json(res, { error: 'Bad Request: watchdogNudgeMs must be a positive number' }, 400, origin)
@@ -557,7 +557,7 @@ const server = http.createServer(async (req, res) => {
       if ('watchdogStallMs' in body) {
         const val = Number(body.watchdogStallMs)
         if (Number.isFinite(val) && val > 0) {
-          process.env.ENSEMBLE_WATCHDOG_STALL_MS = String(val)
+          process.env.AGENT_FORGE_WATCHDOG_STALL_MS = String(val)
           updated.watchdogStallMs = val
         } else {
           return json(res, { error: 'Bad Request: watchdogStallMs must be a positive number' }, 400, origin)
@@ -572,7 +572,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // List teams / Create team
-    if (path === '/api/ensemble/teams') {
+    if (path === '/api/agent-forge/teams') {
       if (method === 'GET') {
         const result = listEnsembleTeams()
         return json(res, result.data, result.status, origin)
@@ -592,8 +592,8 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // ── Lobby: GET /api/ensemble/lobby ──────────────────────────────
-    if (path === '/api/ensemble/lobby' && method === 'GET') {
+    // ── Lobby: GET /api/agent-forge/lobby ──────────────────────────────
+    if (path === '/api/agent-forge/lobby' && method === 'GET') {
       const tag = url.searchParams.get('tag') || undefined
       const status = url.searchParams.get('status') || undefined
       const limit = parseInt(url.searchParams.get('limit') || '50', 10)
@@ -608,7 +608,7 @@ const server = http.createServer(async (req, res) => {
 
     // ── Open Participation sub-routes (must match before teamMatch) ──
 
-    // POST /api/ensemble/teams/:id/join
+    // POST /api/agent-forge/teams/:id/join
     const joinMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/join$/)
     if (joinMatch && method === 'POST') {
       const teamId = joinMatch[1]
@@ -623,7 +623,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, result.data, result.status, origin)
     }
 
-    // POST /api/ensemble/teams/:id/messages (remote participant send)
+    // POST /api/agent-forge/teams/:id/messages (remote participant send)
     const remoteMessageMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/messages$/)
     if (remoteMessageMatch && method === 'POST') {
       const teamId = remoteMessageMatch[1]
@@ -647,7 +647,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, result.data, result.status, origin)
     }
 
-    // POST /api/ensemble/teams/:id/leave
+    // POST /api/agent-forge/teams/:id/leave
     const leaveMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/leave$/)
     if (leaveMatch && method === 'POST') {
       const teamId = leaveMatch[1]
@@ -665,7 +665,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, result.data, result.status, origin)
     }
 
-    // DELETE /api/ensemble/teams/:id/participants/:pid (kick)
+    // DELETE /api/agent-forge/teams/:id/participants/:pid (kick)
     const kickMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/participants\/([^/]+)$/)
     if (kickMatch && method === 'DELETE') {
       const [, teamId, participantId] = kickMatch
@@ -674,7 +674,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, result.data, result.status, origin)
     }
 
-    // POST /api/ensemble/teams/:id/share
+    // POST /api/agent-forge/teams/:id/share
     const shareMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/share$/)
     if (shareMatch && method === 'POST') {
       const teamId = shareMatch[1]
@@ -686,7 +686,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, result.data, result.status, origin)
     }
 
-    // GET /api/ensemble/teams/:id/spectate (SSE, no auth for public; token for shared)
+    // GET /api/agent-forge/teams/:id/spectate (SSE, no auth for public; token for shared)
     const spectateMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/spectate$/)
     if (spectateMatch && method === 'GET') {
       const teamId = spectateMatch[1]
@@ -776,7 +776,7 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
-    // POST /api/ensemble/teams/:id/typing — broadcast typing indicator
+    // POST /api/agent-forge/teams/:id/typing — broadcast typing indicator
     const typingMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/typing$/)
     if (typingMatch && method === 'POST') {
       const teamId = typingMatch[1]
@@ -798,7 +798,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, { ok: true }, 200, origin)
     }
 
-    // GET /api/ensemble/teams/:id/replay — full history for disbanded teams
+    // GET /api/agent-forge/teams/:id/replay — full history for disbanded teams
     const replayMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/replay$/)
     if (replayMatch && method === 'GET') {
       const teamId = replayMatch[1]
@@ -812,7 +812,7 @@ const server = http.createServer(async (req, res) => {
       }, 200, origin)
     }
 
-    // Team operations: /api/ensemble/teams/:id
+    // Team operations: /api/agent-forge/teams/:id
     const teamMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)$/)
     if (teamMatch) {
       const teamId = teamMatch[1]
@@ -869,7 +869,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // Add agent to team: POST /api/ensemble/teams/:id/agents
+    // Add agent to team: POST /api/agent-forge/teams/:id/agents
     const addAgentMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/agents$/)
     if (addAgentMatch && method === 'POST') {
       let body: Record<string, unknown>
@@ -888,7 +888,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, result.data, result.status, origin)
     }
 
-    // Update team config: PATCH /api/ensemble/teams/:id/config
+    // Update team config: PATCH /api/agent-forge/teams/:id/config
     const configMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/config$/)
     if (configMatch && method === 'PATCH') {
       if (!requireAuth(req, res, origin)) return
@@ -923,7 +923,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, { config: updated.config }, 200, origin)
     }
 
-    // Clone/restart team: POST /api/ensemble/teams/:id/clone
+    // Clone/restart team: POST /api/agent-forge/teams/:id/clone
     const cloneMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/clone$/)
     if (cloneMatch && method === 'POST') {
       let body: Record<string, unknown> = {}
@@ -936,7 +936,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, result.data, result.status, origin)
     }
 
-    // Export team output: POST /api/ensemble/teams/:id/export
+    // Export team output: POST /api/agent-forge/teams/:id/export
     const exportMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/export$/)
     if (exportMatch && method === 'POST') {
       let body: Record<string, unknown> = {}
@@ -950,7 +950,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, result.data, result.status, origin)
     }
 
-    // Execute team plan: POST /api/ensemble/teams/:id/execute
+    // Execute team plan: POST /api/agent-forge/teams/:id/execute
     const executeMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/execute$/)
     if (executeMatch && method === 'POST') {
       let body: Record<string, unknown> = {}
@@ -966,7 +966,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, result.data, result.status, origin)
     }
 
-    // Plan step update: PATCH /api/ensemble/teams/:id/plan/:stepId
+    // Plan step update: PATCH /api/agent-forge/teams/:id/plan/:stepId
     const planStepMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/plan\/([^/]+)$/)
     if (planStepMatch && method === 'PATCH') {
       const teamId = planStepMatch[1]
@@ -1010,7 +1010,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, { step: updatedSteps[stepIdx] }, 200, origin)
     }
 
-    // Disband: /api/ensemble/teams/:id/disband
+    // Disband: /api/agent-forge/teams/:id/disband
     const disbandMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/disband$/)
     if (disbandMatch && method === 'POST') {
       if (!requireAuth(req, res, origin)) return
@@ -1025,7 +1025,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, result.data, result.status, origin)
     }
 
-    // Summarize team with AI agent: POST /api/ensemble/teams/:id/summarize
+    // Summarize team with AI agent: POST /api/agent-forge/teams/:id/summarize
     // Spawns a temporary agent session, sends the summarize prompt, captures output.
     // Works with any backend agent (claude, codex, gemini, etc.) — no API key needed.
     const summarizeMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/summarize$/)
@@ -1074,7 +1074,7 @@ ${formattedMessages}`
         const execFileAsync = promisify(execFile)
 
         // Write prompt to a temp file to avoid shell escaping issues
-        const promptFile = nodePath.join(os.tmpdir(), `ensemble-summary-${team.id.slice(0, 8)}.txt`)
+        const promptFile = nodePath.join(os.tmpdir(), `agent-forge-summary-${team.id.slice(0, 8)}.txt`)
         fs.writeFileSync(promptFile, summaryPrompt)
 
         // Use the agent's CLI in non-interactive/print mode
@@ -1172,7 +1172,7 @@ ${formattedMessages}`
       }
     }
 
-    // Reopen team: POST /api/ensemble/teams/:id/reopen
+    // Reopen team: POST /api/agent-forge/teams/:id/reopen
     const reopenMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/reopen$/)
     if (reopenMatch && method === 'POST') {
       const result = await reopenTeam(reopenMatch[1])
@@ -1180,7 +1180,7 @@ ${formattedMessages}`
       return json(res, result.data, result.status, origin)
     }
 
-    // Permanent delete: DELETE /api/ensemble/teams/:id/purge
+    // Permanent delete: DELETE /api/agent-forge/teams/:id/purge
     const purgeMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/purge$/)
     if (purgeMatch && method === 'DELETE') {
       if (!requireAuth(req, res, origin)) return
@@ -1190,7 +1190,7 @@ ${formattedMessages}`
       return json(res, result.data, result.status, origin)
     }
 
-    // Feed: /api/ensemble/teams/:id/feed
+    // Feed: /api/agent-forge/teams/:id/feed
     const feedMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/feed$/)
     if (feedMatch && method === 'GET') {
       const since = url.searchParams.get('since') || undefined
@@ -1199,7 +1199,7 @@ ${formattedMessages}`
       return json(res, result.data, result.status, origin)
     }
 
-    // SSE stream: /api/ensemble/teams/:id/stream
+    // SSE stream: /api/agent-forge/teams/:id/stream
     const streamMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/stream$/)
     if (streamMatch && method === 'GET') {
       const teamId = streamMatch[1]
@@ -1291,7 +1291,7 @@ ${formattedMessages}`
       return
     }
 
-    // SSE stream test page: /api/ensemble/teams/:id/stream/test
+    // SSE stream test page: /api/agent-forge/teams/:id/stream/test
     const streamTestMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/stream\/test$/)
     if (streamTestMatch && method === 'GET') {
       const teamId = streamTestMatch[1]
@@ -1304,7 +1304,7 @@ ${formattedMessages}`
 <script>
 const log = document.getElementById('log');
 function append(text) { log.textContent += text + '\\n'; }
-const es = new EventSource('/api/ensemble/teams/${teamId}/stream');
+const es = new EventSource('/api/agent-forge/teams/${teamId}/stream');
 es.addEventListener('init', e => { append('[init] ' + e.data); });
 es.addEventListener('message', e => { append('[message] ' + e.data); });
 es.addEventListener('disbanded', e => { append('[disbanded] ' + e.data); es.close(); });
@@ -1322,8 +1322,8 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
     // Session interaction endpoints
     // -----------------------------------------------------------------------
 
-    // List all active sessions: GET /api/ensemble/sessions
-    if (path === '/api/ensemble/sessions' && method === 'GET') {
+    // List all active sessions: GET /api/agent-forge/sessions
+    if (path === '/api/agent-forge/sessions' && method === 'GET') {
       if (!requireAuth(req, res, origin)) return
 
       const runtime = getRuntime()
@@ -1337,7 +1337,7 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
       }, 200, origin)
     }
 
-    // Session output: GET /api/ensemble/sessions/:name/output
+    // Session output: GET /api/agent-forge/sessions/:name/output
     const sessionOutputMatch = path.match(/^\/api\/ensemble\/sessions\/([^/]+)\/output$/)
     if (sessionOutputMatch && method === 'GET') {
       if (!requireAuth(req, res, origin)) return
@@ -1359,7 +1359,7 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
       return json(res, { output, session: sessionName, exists: true }, 200, origin)
     }
 
-    // Session input: POST /api/ensemble/sessions/:name/input
+    // Session input: POST /api/agent-forge/sessions/:name/input
     const sessionInputMatch = path.match(/^\/api\/ensemble\/sessions\/([^/]+)\/input$/)
     if (sessionInputMatch && method === 'POST') {
       if (!requireAuth(req, res, origin)) return
@@ -1394,7 +1394,7 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
       return json(res, { ok: true }, 200, origin)
     }
 
-    // Session stream (SSE): GET /api/ensemble/sessions/:name/stream
+    // Session stream (SSE): GET /api/agent-forge/sessions/:name/stream
     const sessionStreamMatch = path.match(/^\/api\/ensemble\/sessions\/([^/]+)\/stream$/)
     if (sessionStreamMatch && method === 'GET') {
       if (!requireAuth(req, res, origin)) return
@@ -1474,8 +1474,8 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
     // Deploy / Update endpoints
     // -----------------------------------------------------------------------
 
-    // GET /api/ensemble/deploy/status — current deployment info
-    if (path === '/api/ensemble/deploy/status' && method === 'GET') {
+    // GET /api/agent-forge/deploy/status — current deployment info
+    if (path === '/api/agent-forge/deploy/status' && method === 'GET') {
       if (!requireAuth(req, res, origin)) return
 
       const { execSync: execSyncCmd } = await import('child_process')
@@ -1511,7 +1511,7 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
 
       // Service status (Linux only)
       try {
-        const status = execSyncCmd('systemctl --user is-active openclaw-ensemble', { cwd: projectRoot, encoding: 'utf-8' }).trim()
+        const status = execSyncCmd('systemctl --user is-active openclaw-agent-forge', { cwd: projectRoot, encoding: 'utf-8' }).trim()
         result.serviceActive = status === 'active'
       } catch { result.serviceActive = false }
 
@@ -1528,8 +1528,8 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
       return json(res, result, 200, origin)
     }
 
-    // POST /api/ensemble/deploy/check — fetch and return diff info
-    if (path === '/api/ensemble/deploy/check' && method === 'POST') {
+    // POST /api/agent-forge/deploy/check — fetch and return diff info
+    if (path === '/api/agent-forge/deploy/check' && method === 'POST') {
       if (!requireAuth(req, res, origin)) return
 
       const { execSync: execSyncCmd } = await import('child_process')
@@ -1580,9 +1580,9 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
       }, 200, origin)
     }
 
-    // GET /api/ensemble/deploy/run — execute full deploy with SSE streaming
+    // GET /api/agent-forge/deploy/run — execute full deploy with SSE streaming
     // Uses GET so EventSource can connect directly from the browser
-    if (path === '/api/ensemble/deploy/run' && (method === 'GET' || method === 'POST')) {
+    if (path === '/api/agent-forge/deploy/run' && (method === 'GET' || method === 'POST')) {
       if (!requireAuth(req, res, origin)) return
 
       const { spawn: spawnDeploy } = await import('child_process')
@@ -1631,7 +1631,7 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
         steps.push({
           message: 'Restarting service...',
           cmd: 'systemctl',
-          args: ['--user', 'restart', 'openclaw-ensemble'],
+          args: ['--user', 'restart', 'openclaw-agent-forge'],
           cwd: projectRoot,
           optional: true,
         })
@@ -1752,8 +1752,8 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
       return
     }
 
-    // GET /api/ensemble/deploy/history — past deploy history
-    if (path === '/api/ensemble/deploy/history' && method === 'GET') {
+    // GET /api/agent-forge/deploy/history — past deploy history
+    if (path === '/api/agent-forge/deploy/history' && method === 'GET') {
       if (!requireAuth(req, res, origin)) return
 
       const { getEnsembleDataDir: getDataDirHist } = await import('./lib/ensemble-paths')
@@ -1770,8 +1770,8 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
       return json(res, entries.slice(0, 20), 200, origin)
     }
 
-    // POST /api/ensemble/deploy/rollback — rollback to a specific commit
-    if (path === '/api/ensemble/deploy/rollback' && method === 'POST') {
+    // POST /api/agent-forge/deploy/rollback — rollback to a specific commit
+    if (path === '/api/agent-forge/deploy/rollback' && method === 'POST') {
       if (!requireAuth(req, res, origin)) return
 
       const { execSync: execSyncRb } = await import('child_process')
@@ -1860,8 +1860,8 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
       }
     }
 
-    // POST /api/ensemble/deploy/webhook — placeholder for GitHub webhook integration
-    if (path === '/api/ensemble/deploy/webhook' && method === 'POST') {
+    // POST /api/agent-forge/deploy/webhook — placeholder for GitHub webhook integration
+    if (path === '/api/agent-forge/deploy/webhook' && method === 'POST') {
       if (!requireAuth(req, res, origin)) return
 
       res.writeHead(501, buildCorsHeaders(origin))
@@ -1896,7 +1896,7 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
 
 server.on('error', (err: NodeJS.ErrnoException) => {
   if (err.code === 'EADDRINUSE') {
-    console.error(`${color.brightRed}\u2717${color.reset} Port ${PORT} is already in use on ${HOST}. Stop the other process or set ENSEMBLE_PORT to a different port.`)
+    console.error(`${color.brightRed}\u2717${color.reset} Port ${PORT} is already in use on ${HOST}. Stop the other process or set AGENT_FORGE_PORT to a different port.`)
     process.exit(1)
   }
 
@@ -1905,7 +1905,7 @@ server.on('error', (err: NodeJS.ErrnoException) => {
 })
 
 // Track server start time for uptime calculation
-;(server as unknown as { _ensembleStartTime: number })._ensembleStartTime = Date.now()
+;(server as unknown as { _agentForgeStartTime: number })._agentForgeStartTime = Date.now()
 
 server.listen(PORT, HOST, () => {
   console.log(styledHeader('agent-forge'))

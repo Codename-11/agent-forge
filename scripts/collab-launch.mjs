@@ -29,10 +29,10 @@ if (!TASK) {
   process.exit(1)
 }
 
-const API = process.env.ENSEMBLE_URL || 'http://localhost:23000'
-const HOST_ID = process.env.ENSEMBLE_HOST_ID || 'local'
-const runtimeRoot = process.env.ENSEMBLE_RUNTIME_DIR
-  || path.join(os.tmpdir(), 'ensemble')
+const API = process.env.AGENT_FORGE_URL || 'http://localhost:23000'
+const HOST_ID = process.env.AGENT_FORGE_HOST_ID || 'local'
+const runtimeRoot = process.env.AGENT_FORGE_RUNTIME_DIR
+  || path.join(os.tmpdir(), 'agent-forge')
 
 // ─── Colors ───
 const G = '\x1b[92m'
@@ -140,7 +140,7 @@ async function main() {
         { program: 'claude code', role: 'worker', hostId: HOST_ID },
       ]
 
-  const result = await httpPost(`${API}/api/ensemble/teams`, {
+  const result = await httpPost(`${API}/api/agent-forge/teams`, {
     name: teamName,
     description: TASK,
     agents,
@@ -273,7 +273,7 @@ async function main() {
   // ─── Output ───
   let agentNames = 'agents'
   try {
-    const teamRes = await httpGet(`${API}/api/ensemble/teams/${teamId}`)
+    const teamRes = await httpGet(`${API}/api/agent-forge/teams/${teamId}`)
     const team = JSON.parse(teamRes.data)
     agentNames = team.team.agents.map(a => a.name).join(' + ')
   } catch { /* ok */ }

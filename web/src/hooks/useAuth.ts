@@ -23,7 +23,7 @@ export function useAuth(): AuthState {
 
   const checkAuth = useCallback(async () => {
     try {
-      const res = await fetch('/api/ensemble/auth/me')
+      const res = await fetch('/api/agent-forge/auth/me')
       if (res.ok) {
         const data = await res.json()
         setUser(data.user)
@@ -40,7 +40,7 @@ export function useAuth(): AuthState {
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {
     setError(null)
     try {
-      const res = await fetch('/api/ensemble/auth/login', {
+      const res = await fetch('/api/agent-forge/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -61,7 +61,7 @@ export function useAuth(): AuthState {
 
   const logout = useCallback(async () => {
     try {
-      await fetch('/api/ensemble/auth/logout', { method: 'POST' })
+      await fetch('/api/agent-forge/auth/logout', { method: 'POST' })
     } catch {
       // Server may be down — clear local state regardless
     } finally {

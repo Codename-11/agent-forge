@@ -12,7 +12,7 @@ CWD="${1:-.}"
 TASK="${2:?Usage: collab-launch.sh <cwd> <task>}"
 AGENTS="${3:-}"  # Optional: comma-separated agent names (e.g. "gemini,claude")
 API="http://localhost:23000"
-HOST_ID="${ENSEMBLE_HOST_ID:-local}"
+HOST_ID="${AGENT_FORGE_HOST_ID:-local}"
 
 # ─── Colors ───
 G='\033[92m'; C='\033[96m'; D='\033[2m'; W='\033[97m'; BD='\033[1m'; R='\033[0m'
@@ -29,7 +29,7 @@ if curl -sf "$API/api/v1/health" > /dev/null 2>&1; then
   echo -e "  ${CHECK} Server running"
 else
   echo -ne "  ${SPIN} Starting server..."
-  cd "$REPO_DIR" && ./node_modules/.bin/tsx server.ts > /tmp/ensemble-server.log 2>&1 &
+  cd "$REPO_DIR" && ./node_modules/.bin/tsx server.ts > /tmp/agent-forge-server.log 2>&1 &
   for _ in $(seq 1 8); do sleep 1; curl -sf "$API/api/v1/health" > /dev/null 2>&1 && break; done
   if curl -sf "$API/api/v1/health" > /dev/null 2>&1; then
     echo -e "\r  ${CHECK} Server started       "
@@ -62,7 +62,7 @@ json.dump({
     'workingDirectory': os.environ['TCWD']
 }, open(os.environ['PFILE'], 'w'))
 "
-RESULT=$(curl -sf -X POST "$API/api/ensemble/teams" \
+RESULT=$(curl -sf -X POST "$API/api/agent-forge/teams" \
   -H "Content-Type: application/json" \
   -d @"$PAYLOAD_FILE")
 rm -f "$PAYLOAD_FILE"
@@ -135,7 +135,7 @@ fi
 # ─── Output ───
 echo ""
 # Build dynamic agent list for display
-AGENT_NAMES=$(curl -sf "$API/api/ensemble/teams/$TEAM_ID" 2>/dev/null \
+AGENT_NAMES=$(curl -sf "$API/api/agent-forge/teams/$TEAM_ID" 2>/dev/null \
   | python3 -c "import json,sys; t=json.load(sys.stdin); print(' + '.join(a['name'] for a in t['team']['agents']))" 2>/dev/null \
   || echo "agents")
 echo -e "  ${BD}${G}Team is live!${R} ${W}${AGENT_NAMES}${R} are collaborating."

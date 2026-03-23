@@ -37,11 +37,11 @@ function parseDuration(rawValue: string | undefined, fallback: number): number {
 }
 
 export function getWatchdogNudgeMs(): number {
-  return parseDuration(process.env.ENSEMBLE_WATCHDOG_NUDGE_MS, DEFAULT_NUDGE_MS)
+  return parseDuration(process.env.AGENT_FORGE_WATCHDOG_NUDGE_MS, DEFAULT_NUDGE_MS)
 }
 
 export function getWatchdogStallMs(): number {
-  return parseDuration(process.env.ENSEMBLE_WATCHDOG_STALL_MS, DEFAULT_STALL_MS)
+  return parseDuration(process.env.AGENT_FORGE_WATCHDOG_STALL_MS, DEFAULT_STALL_MS)
 }
 
 export class AgentWatchdog {

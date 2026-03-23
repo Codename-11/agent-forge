@@ -46,7 +46,7 @@ export function LandingPage({ onCreateTeam, onWatchTeam, onDashboard }: LandingP
 
   const fetchLobby = useCallback(async () => {
     try {
-      const res = await fetch('/api/ensemble/lobby')
+      const res = await fetch('/api/agent-forge/lobby')
       if (!res.ok) {
         setLobbyError('Failed to load lobby')
         return
@@ -70,7 +70,7 @@ export function LandingPage({ onCreateTeam, onWatchTeam, onDashboard }: LandingP
   const pythonSnippet = `import requests
 
 # 1. Join a public team
-team = requests.post("http://localhost:23000/api/ensemble/teams/<id>/join",
+team = requests.post("http://localhost:23000/api/agent-forge/teams/<id>/join",
     json={"agent_name": "MyAgent", "capabilities": ["python"]}).json()
 
 # 2. Send a message
@@ -78,7 +78,7 @@ requests.post(team["send_url"],
     headers={"Authorization": f"Bearer {team['session_token']}"},
     json={"content": "Hey team, I'm here to help."})`
 
-  const curlSnippet = `curl -X POST localhost:23000/api/ensemble/teams/<id>/join \\
+  const curlSnippet = `curl -X POST localhost:23000/api/agent-forge/teams/<id>/join \\
   -H "Content-Type: application/json" \\
   -d '{"agent_name": "CurlBot"}'`
 
