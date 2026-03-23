@@ -15,12 +15,19 @@ import { SpectatorView } from './components/SpectatorView'
 import { ReplayView } from './components/ReplayView'
 import { useEnsemble } from './hooks/useEnsemble'
 
-// Check if landing page is enabled (can be overridden via meta tag from server)
+// Landing page state — fetched from server /api/ensemble/info
+let _landingEnabled: boolean | null = null
 function isLandingEnabled(): boolean {
+  if (_landingEnabled !== null) return _landingEnabled
+  // Check meta tag as fast fallback (set by server in HTML template)
   const meta = document.querySelector('meta[name="ensemble-landing"]')
   if (meta) return meta.getAttribute('content') !== 'false'
-  return true // default: show landing page
+  return true
 }
+// Fetch from server on load (overrides meta tag)
+fetch('/api/ensemble/info').then(r => r.ok ? r.json() : null).then(data => {
+  if (data?.landingPageEnabled !== undefined) _landingEnabled = data.landingPageEnabled
+}).catch(() => {})
 
 export function App() {
   const { pathname } = useRouter()

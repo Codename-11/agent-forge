@@ -32,6 +32,7 @@ import {
   buildSessionCookie,
   buildClearSessionCookie,
   cleanExpiredSessions,
+  destroyAllUserSessions,
 } from './lib/auth'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -333,6 +334,20 @@ const server = http.createServer(async (req, res) => {
       return json(
         res,
         { ok: true },
+        200,
+        origin,
+        { 'Set-Cookie': buildClearSessionCookie() }
+      )
+    }
+
+    // POST /api/ensemble/auth/logout-all — destroy all sessions for current user
+    if (path === '/api/ensemble/auth/logout-all' && method === 'POST') {
+      const user = getAuthUser(req)
+      if (!user) return json(res, { error: 'Not authenticated' }, 401, origin)
+      destroyAllUserSessions(user.userId)
+      return json(
+        res,
+        { ok: true, message: 'All sessions revoked' },
         200,
         origin,
         { 'Set-Cookie': buildClearSessionCookie() }

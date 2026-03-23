@@ -131,6 +131,12 @@ export function destroySession(token: string): void {
   db.prepare('DELETE FROM sessions WHERE token = ?').run(token)
 }
 
+/** Destroy all sessions for a user (logout everywhere) */
+export function destroyAllUserSessions(userId: string): void {
+  const db = getDb()
+  db.prepare('DELETE FROM sessions WHERE userId = ?').run(userId)
+}
+
 /** Remove all expired sessions (housekeeping) */
 export function cleanExpiredSessions(): void {
   const db = getDb()
@@ -229,11 +235,11 @@ export function parseCookies(cookieHeader: string): Record<string, string> {
 export function buildSessionCookie(token: string): string {
   const maxAge = Math.floor(SESSION_MAX_AGE_MS / 1000) // 604800 seconds = 7 days
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
-  return `agent-forge-session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}${secure}`
+  return `agent-forge-session=${token}; HttpOnly; Path=/; SameSite=Strict; Max-Age=${maxAge}${secure}`
 }
 
 /** Build Set-Cookie header value that clears the session cookie */
 export function buildClearSessionCookie(): string {
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
-  return `agent-forge-session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secure}`
+  return `agent-forge-session=; HttpOnly; Path=/; SameSite=Strict; Max-Age=0${secure}`
 }

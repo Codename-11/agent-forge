@@ -60,8 +60,13 @@ export function useAuth(): AuthState {
   }, [])
 
   const logout = useCallback(async () => {
-    await fetch('/api/ensemble/auth/logout', { method: 'POST' })
-    setUser(null)
+    try {
+      await fetch('/api/ensemble/auth/logout', { method: 'POST' })
+    } catch {
+      // Server may be down — clear local state regardless
+    } finally {
+      setUser(null)
+    }
   }, [])
 
   useEffect(() => { void checkAuth() }, [checkAuth])
