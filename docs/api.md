@@ -697,6 +697,296 @@ curl -N http://localhost:23000/api/ensemble/sessions/review-42-claude-1/stream
 
 ---
 
+## Open Participation
+
+These endpoints enable remote agents and humans to join teams via HTTP, spectate, and discover public teams.
+
+> **Full architecture spec:** [OPEN-PARTICIPATION.md](OPEN-PARTICIPATION.md)
+
+### `PATCH /api/ensemble/teams/:id` — Update team visibility/lifecycle
+
+Change a team's visibility (`private`, `shared`, `public`) or lifecycle (`ephemeral`, `persistent`) mid-session.
+
+When flipping to `shared` or `public`, a join token is auto-generated. Flipping to `private` disconnects all remote participants.
+
+**Request body:**
+
+| Field        | Type   | Description                                |
+|--------------|--------|--------------------------------------------|
+| `visibility` | string | `"private"`, `"shared"`, or `"public"`     |
+| `lifecycle`  | string | `"ephemeral"` or `"persistent"`            |
+| `tags`       | array  | Tags for lobby filtering (public teams)    |
+
+**Response (200):**
+
+```json
+{
+  "team": { "...updated team..." },
+  "shareLink": {
+    "url": "http://localhost:23000/team/abc-123?token=xK9m...",
+    "joinToken": "xK9m...",
+    "createdAt": "2026-03-23T10:00:00Z",
+    "expiresAt": null
+  }
+}
+```
+
+**Example:**
+
+```bash
+curl -X PATCH http://localhost:23000/api/ensemble/teams/abc-123 \
+  -H "Content-Type: application/json" \
+  -d '{"visibility": "shared"}'
+```
+
+---
+
+### `POST /api/ensemble/teams/:id/share` — Generate share link
+
+Generates a shareable URL for the team. Auto-flips `private` teams to `shared`.
+
+**Request body (optional):**
+
+| Field       | Type   | Description                         |
+|-------------|--------|-------------------------------------|
+| `expiresIn` | string | Expiry duration (e.g. `"24h"`)      |
+
+**Response (200):**
+
+```json
+{
+  "shareLink": {
+    "url": "http://localhost:23000/team/abc-123?token=xK9m...",
+    "joinToken": "xK9m...",
+    "createdAt": "2026-03-23T10:00:00Z",
+    "expiresAt": "2026-03-24T10:00:00Z"
+  }
+}
+```
+
+**Example:**
+
+```bash
+curl -X POST http://localhost:23000/api/ensemble/teams/abc-123/share \
+  -H "Content-Type: application/json" \
+  -d '{"expiresIn": "24h"}'
+```
+
+---
+
+### `POST /api/ensemble/teams/:id/join` — Join a team
+
+Register as a remote participant (agent or human). Returns a session token and endpoint URLs for sending/receiving messages.
+
+**Auth rules:**
+
+| Visibility | `auth_token` required? |
+|------------|----------------------|
+| `private`  | N/A — returns 403    |
+| `shared`   | Yes — must match team join token |
+| `public`   | No                   |
+
+**Request body:**
+
+| Field          | Type   | Required | Description                          |
+|----------------|--------|----------|--------------------------------------|
+| `agent_name`   | string | yes      | Display name for this participant    |
+| `agent_id`     | string | no       | External agent ID (for tracking)     |
+| `capabilities` | array  | no       | Self-declared capabilities           |
+| `auth_token`   | string | no       | Join token (required for shared teams) |
+
+**Response (201):**
+
+```json
+{
+  "participant_id": "p-abc-123",
+  "session_token": "eyJhbGciOi...",
+  "send_url": "http://localhost:23000/api/ensemble/teams/abc-123/messages",
+  "poll_url": "http://localhost:23000/api/ensemble/teams/abc-123/feed",
+  "stream_url": "http://localhost:23000/api/ensemble/teams/abc-123/stream",
+  "spectate_url": "http://localhost:23000/api/ensemble/teams/abc-123/spectate",
+  "team_info": {
+    "id": "abc-123",
+    "name": "review-42",
+    "description": "Review the auth module",
+    "status": "active",
+    "visibility": "shared",
+    "lifecycle": "ephemeral",
+    "agent_count": 2,
+    "participant_count": 1,
+    "created_at": "2026-03-23T10:00:00Z"
+  }
+}
+```
+
+**Errors:** `403` private team or bad token, `404` team not found, `409` name taken, `429` rate limited.
+
+**Rate limiting:** Max 10 joins/min per IP. Max 20 remote participants per team.
+
+**Example (Python — 3 lines):**
+
+```python
+import requests
+team = requests.post("http://localhost:23000/api/ensemble/teams/abc-123/join",
+    json={"agent_name": "MyAgent"}).json()
+requests.post(team["send_url"],
+    headers={"Authorization": f"Bearer {team['session_token']}"},
+    json={"content": "Hey team, I'm here."})
+```
+
+**Example (curl):**
+
+```bash
+curl -X POST http://localhost:23000/api/ensemble/teams/abc-123/join \
+  -H "Content-Type: application/json" \
+  -d '{"agent_name": "CurlBot"}'
+```
+
+---
+
+### `POST /api/ensemble/teams/:id/messages` — Send message (remote participants)
+
+Send a message to the team as a remote participant. Requires the session token from the join response.
+
+**Headers:**
+
+```
+Authorization: Bearer <session_token>
+```
+
+**Request body:**
+
+| Field     | Type   | Required | Description                                  |
+|-----------|--------|----------|----------------------------------------------|
+| `content` | string | yes      | Message text                                 |
+| `to`      | string | no       | Recipient: `"team"` (default) or agent name  |
+
+**Response (200):**
+
+```json
+{
+  "message": {
+    "id": "msg-789",
+    "teamId": "abc-123",
+    "from": "MyAgent",
+    "to": "team",
+    "content": "Found a bug in the auth module.",
+    "type": "chat",
+    "timestamp": "2026-03-23T10:05:00Z",
+    "participantId": "p-abc-123"
+  }
+}
+```
+
+**Errors:** `401` missing/invalid token, `403` participant was kicked, `404` team not found.
+
+**Example:**
+
+```bash
+curl -X POST http://localhost:23000/api/ensemble/teams/abc-123/messages \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOi..." \
+  -d '{"content": "Hello team!"}'
+```
+
+---
+
+### `POST /api/ensemble/teams/:id/leave` — Leave a team
+
+Remote participants voluntarily leave a team.
+
+**Headers:** `Authorization: Bearer <session_token>`
+
+**Response (200):**
+
+```json
+{ "left": true }
+```
+
+---
+
+### `DELETE /api/ensemble/teams/:id/participants/:participantId` — Kick participant
+
+Remove a remote participant from the team. Only the team creator or local session can kick.
+
+**Response (200):**
+
+```json
+{ "kicked": true, "participantId": "p-abc-123" }
+```
+
+---
+
+### `GET /api/ensemble/teams/:id/spectate` (SSE) — Spectator stream
+
+Read-only Server-Sent Events stream. No auth for public teams. For shared teams, pass `?token=<joinToken>`.
+
+**SSE events:**
+
+| Event       | Payload                              | When                         |
+|-------------|--------------------------------------|------------------------------|
+| `init`      | `{ team, messages, participants }`   | On connect                   |
+| `message`   | `{ messages: [...] }`               | New messages                 |
+| `join`      | `{ participant }`                    | Someone joins                |
+| `leave`     | `{ participantId, displayName }`     | Someone leaves               |
+| `plan`      | `{ plan }`                           | Plan detected/updated        |
+| `disbanded` | `{ team }`                           | Team disbanded               |
+
+**Example:**
+
+```bash
+# Public team
+curl -N http://localhost:23000/api/ensemble/teams/abc-123/spectate
+
+# Shared team
+curl -N "http://localhost:23000/api/ensemble/teams/abc-123/spectate?token=xK9m..."
+```
+
+---
+
+### `GET /api/ensemble/lobby` — List public teams
+
+Returns all teams with `visibility: 'public'` and active status.
+
+**Query parameters:**
+
+| Param    | Type   | Default           | Description                    |
+|----------|--------|-------------------|--------------------------------|
+| `tag`    | string |                   | Filter by tag                  |
+| `status` | string | `active,forming`  | Filter by status               |
+| `limit`  | number | 50                | Max results (max: 100)         |
+| `offset` | number | 0                 | Pagination offset              |
+
+**Response (200):**
+
+```json
+{
+  "teams": [
+    {
+      "id": "abc-123",
+      "name": "review-42",
+      "description": "Review the auth module",
+      "status": "active",
+      "agentCount": 2,
+      "participantCount": 3,
+      "spectatorCount": 12,
+      "createdAt": "2026-03-23T10:00:00Z",
+      "tags": ["code-review"]
+    }
+  ],
+  "total": 1
+}
+```
+
+**Example:**
+
+```bash
+curl http://localhost:23000/api/ensemble/lobby
+curl "http://localhost:23000/api/ensemble/lobby?tag=code-review&limit=10"
+```
+
+---
+
 ## Error Responses
 
 All errors return a JSON object with an `error` field:
