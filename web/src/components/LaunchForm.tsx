@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Rocket, Plus, X, Loader2, FolderOpen, ChevronDown, ChevronRight, Crown, ArrowUp, Settings } from 'lucide-react'
+import { Rocket, Plus, X, Loader2, FolderOpen, ChevronDown, ChevronRight, Crown, ArrowUp, Settings, Folder } from 'lucide-react'
 import { cn } from '../lib/utils'
-import type { CollabTemplateSummary, EnsembleServerInfo, TeamConfig } from '../types'
+import type { CollabTemplateSummary, EnsembleServerInfo, ProjectDirectory, TeamConfig } from '../types'
 
 interface AgentInfo {
   id: string
@@ -55,6 +55,7 @@ export function LaunchForm({ onLaunch, onCancel }: LaunchFormProps) {
   const [serverCwd, setServerCwd] = useState('')
   const [availableAgents, setAvailableAgents] = useState<AgentInfo[]>(FALLBACK_AGENTS)
   const [recentDirs, setRecentDirs] = useState<string[]>([])
+  const [projectDirs, setProjectDirs] = useState<ProjectDirectory[]>([])
   const [templates, setTemplates] = useState<CollabTemplateSummary[]>([])
   const [minAgents, setMinAgents] = useState(DEFAULT_MIN_AGENTS)
   const [maxAgents, setMaxAgents] = useState(DEFAULT_MAX_AGENTS)
@@ -73,6 +74,7 @@ export function LaunchForm({ onLaunch, onCancel }: LaunchFormProps) {
         if (data.cwd) setServerCwd(data.cwd)
         if (data.agents?.length) setAvailableAgents(data.agents)
         if (data.recentDirectories?.length) setRecentDirs(data.recentDirectories)
+        if (data.projectDirectories?.length) setProjectDirs(data.projectDirectories)
         if (data.templates?.length) setTemplates(data.templates)
         if (data.launchDefaults) {
           setMinAgents(data.launchDefaults.minAgents)
@@ -177,8 +179,9 @@ export function LaunchForm({ onLaunch, onCancel }: LaunchFormProps) {
     }
   }
 
-  // Combine recent dirs with server cwd for the picker
+  // Combine recent dirs with server cwd for the picker (project dirs shown separately)
   const allDirs = [serverCwd, ...recentDirs.filter(d => d !== serverCwd)].filter(Boolean)
+  const hasPickerItems = allDirs.length > 0 || projectDirs.length > 0
 
   return (
     <div
@@ -376,12 +379,12 @@ export function LaunchForm({ onLaunch, onCancel }: LaunchFormProps) {
                 value={workingDirectory}
                 onChange={e => setWorkingDirectory(e.target.value)}
               />
-              {allDirs.length > 0 && (
+              {hasPickerItems && (
                 <button
                   type="button"
                   className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-2 text-muted-foreground transition-colors hover:border-[var(--border-strong)] hover:text-foreground"
                   onClick={() => setShowDirPicker(!showDirPicker)}
-                  title="Recent directories"
+                  title="Browse directories"
                 >
                   <FolderOpen className="size-3.5" />
                   <ChevronDown className={cn('size-3 transition-transform', showDirPicker && 'rotate-180')} />
@@ -390,25 +393,53 @@ export function LaunchForm({ onLaunch, onCancel }: LaunchFormProps) {
             </div>
 
             {/* Directory dropdown */}
-            {showDirPicker && allDirs.length > 0 && (
-              <div className="absolute top-full left-0 right-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
-                {allDirs.map((dir, i) => (
-                  <button
-                    key={dir}
-                    type="button"
-                    className={cn(
-                      'flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-muted/50',
-                      i === 0 && 'border-b border-border',
+            {showDirPicker && hasPickerItems && (
+              <div className="absolute top-full left-0 right-0 z-10 mt-1 max-h-60 overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
+                {/* Project directories (from ENSEMBLE_PROJECTS_DIR) */}
+                {projectDirs.length > 0 && (
+                  <>
+                    <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                      Projects
+                    </div>
+                    {projectDirs.map(proj => (
+                      <button
+                        key={proj.path}
+                        type="button"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-muted/50"
+                        onClick={() => selectDirectory(proj.path)}
+                      >
+                        <Folder className="size-3 shrink-0 text-primary/70" />
+                        <span className="font-medium text-foreground">{proj.name}</span>
+                        <span className="ml-auto truncate text-[10px] text-muted-foreground/40 max-w-[50%] text-right">{proj.path}</span>
+                      </button>
+                    ))}
+                    {allDirs.length > 0 && <div className="border-t border-border" />}
+                  </>
+                )}
+                {/* Recent / server cwd directories */}
+                {allDirs.length > 0 && (
+                  <>
+                    {projectDirs.length > 0 && (
+                      <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                        Recent
+                      </div>
                     )}
-                    onClick={() => selectDirectory(dir)}
-                  >
-                    <FolderOpen className="size-3 shrink-0 text-muted-foreground" />
-                    <span className="truncate text-foreground">{dir}</span>
-                    {i === 0 && dir === serverCwd && (
-                      <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/50">server cwd</span>
-                    )}
-                  </button>
-                ))}
+                    {allDirs.map((dir, i) => (
+                      <button
+                        key={dir}
+                        type="button"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-muted/50"
+                        onClick={() => selectDirectory(dir)}
+                      >
+                        <FolderOpen className="size-3 shrink-0 text-muted-foreground" />
+                        <span className="truncate text-foreground">{dir}</span>
+                        {i === 0 && dir === serverCwd && (
+                          <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/50">server cwd</span>
+                        )}
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
             )}
           </div>

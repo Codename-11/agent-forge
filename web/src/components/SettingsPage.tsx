@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Copy,
   Plug,
+  BookOpen,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 
@@ -289,159 +290,176 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-3xl space-y-6">
+        <div className="mx-auto max-w-5xl space-y-6">
 
-          {/* ── Server Section ──────────────────────────────── */}
-          <section className="rounded-lg border border-border bg-card">
-            <div className="flex items-center gap-2 border-b border-border px-5 py-3">
-              <Server className="size-4 text-primary" />
-              <h2 className="text-sm font-semibold">Server</h2>
-            </div>
-            <div className="space-y-4 p-5">
-              {/* Port (read-only) */}
-              <SettingsField label="Port" readOnly>
-                <span className="font-mono text-sm text-muted-foreground">{config.port}</span>
-              </SettingsField>
+          {/* ── Server + Watchdog — 2 columns on desktop ──────── */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* ── Server Section ──────────────────────────────── */}
+            <section className="rounded-lg border border-border bg-card">
+              <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+                <Server className="size-4 text-primary" />
+                <h2 className="text-sm font-semibold">Server</h2>
+              </div>
+              <div className="space-y-4 p-5">
+                {/* Port (read-only) */}
+                <SettingsField label="Port" readOnly>
+                  <span className="font-mono text-sm text-muted-foreground">{config.port}</span>
+                </SettingsField>
 
-              {/* Host (read-only) */}
-              <SettingsField label="Host" readOnly>
-                <span className="font-mono text-sm text-muted-foreground">{config.host}</span>
-              </SettingsField>
+                {/* Host (read-only) */}
+                <SettingsField label="Host" readOnly>
+                  <span className="font-mono text-sm text-muted-foreground">{config.host}</span>
+                </SettingsField>
 
-              {/* Communication mode (editable) */}
-              <SettingsField label="Communication Mode">
-                <select
-                  className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                  value={commMode}
-                  onChange={(e) => setCommMode(e.target.value)}
-                >
-                  <option value="mcp">MCP (Model Context Protocol)</option>
-                  <option value="shell">Shell (fallback)</option>
-                </select>
-              </SettingsField>
+                {/* Communication mode (editable) */}
+                <SettingsField label="Comm Mode">
+                  <select
+                    className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                    value={commMode}
+                    onChange={(e) => setCommMode(e.target.value)}
+                  >
+                    <option value="mcp">MCP (Model Context Protocol)</option>
+                    <option value="shell">Shell (fallback)</option>
+                  </select>
+                </SettingsField>
 
-              {/* Auto summary (editable) */}
-              <SettingsField label="Auto Summary">
-                <button
-                  className={cn(
-                    'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors',
-                    autoSummary ? 'bg-primary' : 'bg-muted'
-                  )}
-                  onClick={() => setAutoSummary(!autoSummary)}
-                  role="switch"
-                  aria-checked={autoSummary}
-                >
-                  <span
+                {/* Auto summary (editable) */}
+                <SettingsField label="Auto Summary">
+                  <button
                     className={cn(
-                      'pointer-events-none inline-block size-5 rounded-full bg-white shadow-lg ring-0 transition-transform',
-                      autoSummary ? 'translate-x-5' : 'translate-x-0'
+                      'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors',
+                      autoSummary ? 'bg-primary' : 'bg-muted'
                     )}
-                  />
-                </button>
-                <span className="ml-2 text-xs text-muted-foreground">
-                  {autoSummary ? 'Enabled' : 'Disabled'}
-                </span>
-              </SettingsField>
-
-              {/* Data directory (read-only) */}
-              <SettingsField label="Data Directory" readOnly>
-                <span className="font-mono text-sm text-muted-foreground">{config.dataDir}</span>
-              </SettingsField>
-
-              {/* Runtime directory (read-only) */}
-              <SettingsField label="Runtime Directory" readOnly>
-                <span className="font-mono text-sm text-muted-foreground">{config.runtimeDir}</span>
-              </SettingsField>
-
-              {/* Save button */}
-              {serverDirty && (
-                <div className="flex justify-end pt-2">
-                  <button
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-                    onClick={() => void saveServerSettings()}
-                    disabled={saving === 'server'}
+                    onClick={() => setAutoSummary(!autoSummary)}
+                    role="switch"
+                    aria-checked={autoSummary}
                   >
-                    {saving === 'server' ? (
-                      <Loader2 className="size-3 animate-spin" />
-                    ) : (
-                      <Save className="size-3" />
-                    )}
-                    Save Server Settings
+                    <span
+                      className={cn(
+                        'pointer-events-none inline-block size-5 rounded-full bg-white shadow-lg ring-0 transition-transform',
+                        autoSummary ? 'translate-x-5' : 'translate-x-0'
+                      )}
+                    />
                   </button>
-                </div>
-              )}
-            </div>
-          </section>
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {autoSummary ? 'Enabled' : 'Disabled'}
+                  </span>
+                </SettingsField>
 
-          {/* ── Watchdog Section ─────────────────────────────── */}
-          <section className="rounded-lg border border-border bg-card">
-            <div className="flex items-center gap-2 border-b border-border px-5 py-3">
-              <Shield className="size-4 text-yellow-500" />
-              <h2 className="text-sm font-semibold">Watchdog</h2>
-            </div>
-            <div className="space-y-4 p-5">
-              {/* Nudge threshold */}
-              <SettingsField label="Nudge Threshold">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    className="w-20 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                    value={nudgeMinutes}
-                    min={1}
-                    onChange={(e) => setNudgeMinutes(Math.max(1, parseInt(e.target.value) || 1))}
-                  />
-                  <span className="text-xs text-muted-foreground">minutes</span>
-                </div>
-                <p className="mt-1 text-[11px] text-muted-foreground/70">
-                  Time before the watchdog nudges an idle agent
-                </p>
-              </SettingsField>
+                {/* Data directory (read-only) */}
+                <SettingsField label="Data Dir" readOnly>
+                  <span className="break-all font-mono text-xs text-muted-foreground">{config.dataDir}</span>
+                </SettingsField>
 
-              {/* Stall threshold */}
-              <SettingsField label="Stall Threshold">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    className="w-20 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                    value={stallMinutes}
-                    min={1}
-                    onChange={(e) => setStallMinutes(Math.max(1, parseInt(e.target.value) || 1))}
-                  />
-                  <span className="text-xs text-muted-foreground">minutes</span>
-                </div>
-                <p className="mt-1 text-[11px] text-muted-foreground/70">
-                  Time after nudge before marking agent as stalled
-                </p>
-              </SettingsField>
+                {/* Runtime directory (read-only) */}
+                <SettingsField label="Runtime Dir" readOnly>
+                  <span className="break-all font-mono text-xs text-muted-foreground">{config.runtimeDir}</span>
+                </SettingsField>
 
-              {/* Poll interval (read-only) */}
-              <SettingsField label="Poll Interval" readOnly>
-                <span className="font-mono text-sm text-muted-foreground">
-                  {msToSeconds(config.watchdog.pollMs)}s
-                </span>
-              </SettingsField>
+                {/* Save button */}
+                {serverDirty && (
+                  <div className="flex justify-end pt-2">
+                    <button
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                      onClick={() => void saveServerSettings()}
+                      disabled={saving === 'server'}
+                    >
+                      {saving === 'server' ? (
+                        <Loader2 className="size-3 animate-spin" />
+                      ) : (
+                        <Save className="size-3" />
+                      )}
+                      Save Server Settings
+                    </button>
+                  </div>
+                )}
+              </div>
+            </section>
 
-              {/* Save button */}
-              {watchdogDirty && (
-                <div className="flex justify-end pt-2">
-                  <button
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-                    onClick={() => void saveWatchdogSettings()}
-                    disabled={saving === 'watchdog'}
-                  >
-                    {saving === 'watchdog' ? (
-                      <Loader2 className="size-3 animate-spin" />
-                    ) : (
-                      <Save className="size-3" />
-                    )}
-                    Save Watchdog Settings
-                  </button>
-                </div>
-              )}
-            </div>
-          </section>
+            {/* ── Watchdog Section ─────────────────────────────── */}
+            <section className="rounded-lg border border-border bg-card">
+              <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+                <Shield className="size-4 text-yellow-500" />
+                <h2 className="text-sm font-semibold">Watchdog</h2>
+              </div>
+              <div className="space-y-4 p-5">
+                {/* Nudge threshold */}
+                <SettingsField label="Nudge Threshold">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      className="w-20 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      value={nudgeMinutes}
+                      min={1}
+                      onChange={(e) => setNudgeMinutes(Math.max(1, parseInt(e.target.value) || 1))}
+                    />
+                    <span className="text-xs text-muted-foreground">minutes</span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground/70">
+                    Time before the watchdog nudges an idle agent
+                  </p>
+                </SettingsField>
 
-          {/* ── Agents Section ───────────────────────────────── */}
+                {/* Stall threshold */}
+                <SettingsField label="Stall Threshold">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      className="w-20 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      value={stallMinutes}
+                      min={1}
+                      onChange={(e) => setStallMinutes(Math.max(1, parseInt(e.target.value) || 1))}
+                    />
+                    <span className="text-xs text-muted-foreground">minutes</span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground/70">
+                    Time after nudge before marking agent as stalled
+                  </p>
+                </SettingsField>
+
+                {/* Poll interval (read-only) */}
+                <SettingsField label="Poll Interval" readOnly>
+                  <span className="font-mono text-sm text-muted-foreground">
+                    {msToSeconds(config.watchdog.pollMs)}s
+                  </span>
+                </SettingsField>
+
+                {/* Completion window (read-only) */}
+                <SettingsField label="Completion Window" readOnly>
+                  <span className="font-mono text-sm text-muted-foreground">
+                    {msToSeconds(config.completion.windowMs)}s
+                  </span>
+                </SettingsField>
+
+                {/* Single signal idle (read-only) */}
+                <SettingsField label="Single Signal Idle" readOnly>
+                  <span className="font-mono text-sm text-muted-foreground">
+                    {msToSeconds(config.completion.singleSignalIdleMs)}s
+                  </span>
+                </SettingsField>
+
+                {/* Save button */}
+                {watchdogDirty && (
+                  <div className="flex justify-end pt-2">
+                    <button
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                      onClick={() => void saveWatchdogSettings()}
+                      disabled={saving === 'watchdog'}
+                    >
+                      {saving === 'watchdog' ? (
+                        <Loader2 className="size-3 animate-spin" />
+                      ) : (
+                        <Save className="size-3" />
+                      )}
+                      Save Watchdog Settings
+                    </button>
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+
+          {/* ── Agents Section — full width ─────────────────── */}
           <section className="rounded-lg border border-border bg-card">
             <div className="flex items-center gap-2 border-b border-border px-5 py-3">
               <Bot className="size-4 text-blue-400" />
@@ -513,70 +531,76 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
             </div>
           </section>
 
-          {/* ── MCP Section ─────────────────────────────────── */}
-          <McpSection config={config} showToast={showToast} />
+          {/* ── MCP + System Prompt — 2 columns on desktop ──── */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* ── MCP Section ─────────────────────────────────── */}
+            <McpSection config={config} showToast={showToast} />
 
-          {/* ── System Prompt Section ────────────────────────── */}
-          <section className="rounded-lg border border-border bg-card">
-            <div className="flex items-center gap-2 border-b border-border px-5 py-3">
-              <FileText className="size-4 text-green-400" />
-              <h2 className="text-sm font-semibold">System Prompt Template</h2>
-            </div>
-            <div className="space-y-3 p-5">
-              <p className="text-[11px] text-muted-foreground">
-                This is the default prompt template sent to agents when a team is created.
-                Variables like <code className="rounded bg-background px-1 text-[10px]">{'{agentName}'}</code>,{' '}
-                <code className="rounded bg-background px-1 text-[10px]">{'{teamName}'}</code>,{' '}
-                <code className="rounded bg-background px-1 text-[10px]">{'{description}'}</code> are replaced at runtime.
-              </p>
-              <textarea
-                className="h-56 w-full resize-y rounded-md border border-border bg-background p-3 font-mono text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                value={promptTemplate}
-                onChange={(e) => {
-                  setPromptTemplate(e.target.value)
-                  setPromptDirty(e.target.value !== DEFAULT_PROMPT_TEMPLATE)
-                }}
-              />
-              <div className="flex items-center gap-2 justify-end">
-                {promptDirty && (
-                  <button
-                    className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    onClick={resetPrompt}
-                  >
-                    <RotateCcw className="size-3" />
-                    Reset to Default
-                  </button>
-                )}
-                {promptDirty && (
-                  <button
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-                    onClick={() => {
-                      // Prompt customization is stored client-side for now
-                      // (server-side persistence would require a config file)
-                      try {
-                        localStorage.setItem('ensemble:promptTemplate', promptTemplate)
-                        setPromptDirty(false)
-                        showToast('success', 'Prompt template saved locally')
-                      } catch {
-                        showToast('error', 'Failed to save prompt template')
-                      }
-                    }}
-                  >
-                    <Save className="size-3" />
-                    Save Prompt
-                  </button>
-                )}
+            {/* ── System Prompt Section ────────────────────────── */}
+            <section className="rounded-lg border border-border bg-card">
+              <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+                <FileText className="size-4 text-green-400" />
+                <h2 className="text-sm font-semibold">System Prompt Template</h2>
               </div>
-            </div>
-          </section>
+              <div className="space-y-3 p-5">
+                <p className="text-[11px] text-muted-foreground">
+                  This is the default prompt template sent to agents when a team is created.
+                  Variables like <code className="rounded bg-background px-1 text-[10px]">{'{agentName}'}</code>,{' '}
+                  <code className="rounded bg-background px-1 text-[10px]">{'{teamName}'}</code>,{' '}
+                  <code className="rounded bg-background px-1 text-[10px]">{'{description}'}</code> are replaced at runtime.
+                </p>
+                <textarea
+                  className="h-56 w-full resize-y rounded-md border border-border bg-background p-3 font-mono text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  value={promptTemplate}
+                  onChange={(e) => {
+                    setPromptTemplate(e.target.value)
+                    setPromptDirty(e.target.value !== DEFAULT_PROMPT_TEMPLATE)
+                  }}
+                />
+                <div className="flex items-center gap-2 justify-end">
+                  {promptDirty && (
+                    <button
+                      className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      onClick={resetPrompt}
+                    >
+                      <RotateCcw className="size-3" />
+                      Reset to Default
+                    </button>
+                  )}
+                  {promptDirty && (
+                    <button
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                      onClick={() => {
+                        // Prompt customization is stored client-side for now
+                        // (server-side persistence would require a config file)
+                        try {
+                          localStorage.setItem('ensemble:promptTemplate', promptTemplate)
+                          setPromptDirty(false)
+                          showToast('success', 'Prompt template saved locally')
+                        } catch {
+                          showToast('error', 'Failed to save prompt template')
+                        }
+                      }}
+                    >
+                      <Save className="size-3" />
+                      Save Prompt
+                    </button>
+                  )}
+                </div>
+              </div>
+            </section>
+          </div>
 
-          {/* ── About Section ────────────────────────────────── */}
-          <section className="rounded-lg border border-border bg-card">
-            <div className="flex items-center gap-2 border-b border-border px-5 py-3">
-              <Info className="size-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold">About</h2>
-            </div>
-            <div className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
+          {/* ── Agent Knowledge Section — full width ──────── */}
+          <AgentKnowledgeSection showToast={showToast} />
+
+          {/* ── About Section — footer bar ─────────────────── */}
+          <section className="rounded-lg border border-border bg-card/50">
+            <div className="flex flex-wrap items-center gap-x-8 gap-y-2 px-5 py-3">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Info className="size-3.5" />
+                <span className="font-medium">About</span>
+              </div>
               <AboutItem label="Version" value={config.about.version} />
               <AboutItem label="Node.js" value={config.about.nodeVersion} />
               <AboutItem label="Platform" value={config.about.platform} />
@@ -603,7 +627,7 @@ function SettingsField({
 }) {
   return (
     <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:gap-4">
-      <label className="flex w-40 shrink-0 items-center gap-1.5 pt-1.5 text-xs font-medium text-muted-foreground">
+      <label className="flex w-36 shrink-0 items-center gap-1.5 pt-1.5 text-xs font-medium text-muted-foreground">
         {readOnly && <Lock className="size-2.5 text-muted-foreground/50" />}
         {label}
       </label>
@@ -614,12 +638,79 @@ function SettingsField({
 
 function AboutItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
         {label}
       </span>
-      <span className="font-mono text-sm text-foreground">{value}</span>
+      <span className="font-mono text-xs text-foreground">{value}</span>
     </div>
+  )
+}
+
+// ── Agent Knowledge Section ────────────────────────────────────
+
+function AgentKnowledgeSection({ showToast }: { showToast: (type: 'success' | 'error', message: string) => void }) {
+  const [skillPath, setSkillPath] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/ensemble/info')
+      .then(r => r.json())
+      .then((data: { cwd?: string }) => {
+        if (data.cwd) {
+          // SKILL.md lives at the project root
+          const path = data.cwd.replace(/\\/g, '/') + '/SKILL.md'
+          setSkillPath(path)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  function copyPath() {
+    if (!skillPath) return
+    navigator.clipboard.writeText(skillPath).then(() => {
+      setCopied(true)
+      showToast('success', 'SKILL.md path copied to clipboard')
+      setTimeout(() => setCopied(false), 1500)
+    }).catch(() => {
+      showToast('error', 'Failed to copy')
+    })
+  }
+
+  return (
+    <section className="rounded-lg border border-border bg-card">
+      <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+        <BookOpen className="size-4 text-orange-400" />
+        <h2 className="text-sm font-semibold">Agent Knowledge</h2>
+      </div>
+      <div className="space-y-3 p-5">
+        <p className="text-[11px] text-muted-foreground">
+          Share this file with external agents (OpenClaw, etc.) so they understand the project structure,
+          API endpoints, and available MCP tools.
+        </p>
+
+        {skillPath && (
+          <div className="flex items-center gap-2">
+            <code className="flex-1 rounded bg-background px-3 py-2 font-mono text-xs text-foreground/70">
+              {skillPath}
+            </code>
+            <button
+              onClick={copyPath}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
+                copied
+                  ? 'border-green-500/30 bg-green-500/10 text-green-400'
+                  : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
+              )}
+              title="Copy SKILL.md path for external agents"
+            >
+              {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+              {copied ? 'Copied' : 'Copy for agent'}
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -675,7 +766,7 @@ function McpSection({ config, showToast }: { config: ServerConfig; showToast: (t
         {/* MCP server path */}
         <SettingsField label="Server Path" readOnly>
           <div className="flex items-center gap-2">
-            <code className="rounded bg-background px-2 py-1 font-mono text-[11px] text-foreground/70">
+            <code className="break-all rounded bg-background px-2 py-1 font-mono text-[11px] text-foreground/70">
               {serverPath}
             </code>
             {mcpServerPath && (

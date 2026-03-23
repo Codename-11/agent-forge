@@ -90,6 +90,11 @@ export interface CollabTemplateSummary {
   roles: string[]
 }
 
+export interface ProjectDirectory {
+  name: string
+  path: string
+}
+
 export interface EnsembleServerInfo {
   cwd: string
   agents: Array<{
@@ -106,4 +111,5 @@ export interface EnsembleServerInfo {
     feedMode: EnsembleTeam['feedMode']
   }
   recentDirectories: string[]
+  projectDirectories: ProjectDirectory[]
 }

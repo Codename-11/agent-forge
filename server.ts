@@ -183,6 +183,26 @@ const server = http.createServer(async (req, res) => {
 
       const mcpServerPath = nodePath.resolve(__dirname, 'mcp', 'ensemble-mcp-server.mjs')
 
+      // Scan ENSEMBLE_PROJECTS_DIR for project subdirectories
+      const projectDirectories: Array<{ name: string; path: string }> = []
+      const projectsDir = process.env.ENSEMBLE_PROJECTS_DIR
+      if (projectsDir) {
+        try {
+          const entries = fs.readdirSync(projectsDir, { withFileTypes: true })
+          for (const entry of entries) {
+            if (entry.isDirectory()) {
+              projectDirectories.push({
+                name: entry.name,
+                path: nodePath.resolve(projectsDir, entry.name),
+              })
+            }
+          }
+          projectDirectories.sort((a, b) => a.name.localeCompare(b.name))
+        } catch {
+          // ENSEMBLE_PROJECTS_DIR not readable — return empty array
+        }
+      }
+
       return json(res, {
         cwd: process.cwd(),
         agents,
@@ -194,6 +214,7 @@ const server = http.createServer(async (req, res) => {
           feedMode: 'live',
         },
         recentDirectories: recentDirs,
+        projectDirectories,
       }, 200, origin)
     }
 
