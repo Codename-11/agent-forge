@@ -21,7 +21,36 @@ import { useEnsemble } from './hooks/useEnsemble'
 import { Monitor } from './components/Monitor'
 import { LaunchForm } from './components/LaunchForm'
 import { SettingsPage } from './components/SettingsPage'
+import { LandingPage } from './components/LandingPage'
+import { SpectatorView } from './components/SpectatorView'
 import { useUIStore } from './stores/ui-store'
+
+// ── Client-side routing helpers ───────────────────────────────
+
+function getRouteFromUrl(): { route: string; teamId?: string; token?: string } {
+  const pathname = window.location.pathname
+  const search = new URLSearchParams(window.location.search)
+
+  // /team/:id — spectator view
+  const spectateMatch = pathname.match(/^\/team\/([^/?]+)/)
+  if (spectateMatch) {
+    return {
+      route: 'spectate',
+      teamId: spectateMatch[1],
+      token: search.get('token') ?? undefined,
+    }
+  }
+
+  // /lobby — lobby standalone
+  if (pathname === '/lobby') return { route: 'lobby' }
+
+  // hash-based monitor route
+  const hash = window.location.hash.replace('#', '')
+  if (hash) return { route: 'monitor', teamId: hash }
+
+  // Default — landing or team list
+  return { route: 'default' }
+}
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -62,6 +91,15 @@ export function App() {
   const [hoveredTeamId, setHoveredTeamId] = useState<string | null>(null)
   const [serverOnline, setServerOnline] = useState(false)
 
+  // Spectator route state
+  const initialRoute = getRouteFromUrl()
+  const [spectatorTeamId, setSpectatorTeamId] = useState<string | null>(
+    initialRoute.route === 'spectate' ? (initialRoute.teamId ?? null) : null
+  )
+  const [spectatorToken, setSpectatorToken] = useState<string | undefined>(
+    initialRoute.route === 'spectate' ? initialRoute.token : undefined
+  )
+
   const { team, messages, connected, error, sendMessage, disbandTeam } = useEnsemble(selectedTeamId)
 
   // Clone a past team (restart fresh or continue with context)
@@ -88,10 +126,26 @@ export function App() {
     } catch { /* ignore */ }
   }, [])
 
-  // Check URL hash for team ID on mount
+  // Handle URL navigation — hash for monitor, /team/:id for spectator
   useEffect(() => {
-    const hash = window.location.hash.replace('#', '')
-    if (hash) setSelectedTeamId(hash)
+    const route = getRouteFromUrl()
+    if (route.route === 'spectate' && route.teamId) {
+      setSpectatorTeamId(route.teamId)
+      setSpectatorToken(route.token)
+    } else {
+      const hash = window.location.hash.replace('#', '')
+      if (hash) setSelectedTeamId(hash)
+    }
+  }, [])
+
+  // Watch for hash changes (navigation within SPA)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '')
+      if (hash) setSelectedTeamId(hash)
+    }
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
   // Update URL hash when team changes
@@ -144,6 +198,24 @@ export function App() {
 
   const totalTeams = teams.length
   const activeCount = activeTeams.length
+
+  // ── Spectator view (path-based routing: /team/:id) ──────────
+  if (spectatorTeamId) {
+    return (
+      <div className="flex h-full max-h-screen flex-col overflow-hidden">
+        <SpectatorView
+          teamId={spectatorTeamId}
+          token={spectatorToken}
+          onBack={() => {
+            setSpectatorTeamId(null)
+            setSpectatorToken(undefined)
+            // Restore URL to root
+            window.history.pushState({}, '', '/')
+          }}
+        />
+      </div>
+    )
+  }
 
   // ── Settings view ───────────────────────────────────────────
   if (activeView === 'settings') {
@@ -250,30 +322,13 @@ export function App() {
           <span className="text-sm">Loading teams...</span>
         </div>
       ) : teams.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 text-muted-foreground">
-          <Users className="size-10 opacity-30" />
-          <p className="text-sm font-medium">No sessions yet</p>
-          <div className="flex flex-col items-center gap-3 max-w-sm">
-            <button
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              onClick={() => setShowLaunchForm(true)}
-            >
-              <Plus className="size-4" />
-              Create your first session
-            </button>
-            <p className="text-center text-xs opacity-60">or from the command line:</p>
-            <div className="w-full rounded-lg border border-border bg-card p-3 text-left">
-              <p className="mb-2 text-[0.65rem] font-medium uppercase tracking-wider opacity-50">Quick start</p>
-              <code className="block rounded bg-background px-2.5 py-1.5 font-mono text-xs text-foreground/80">
-                ensemble run "your task" --agents codex,claude
-              </code>
-              <p className="mt-2 text-[0.65rem] font-medium uppercase tracking-wider opacity-50">Or via API</p>
-              <code className="block rounded bg-background px-2.5 py-1.5 font-mono text-[0.65rem] text-foreground/80 break-all">
-                curl -X POST localhost:23000/api/ensemble/teams -H "Content-Type: application/json" -d '{"{"}\"name\":\"my-team\",\"agents\":[{"{"}\"program\":\"codex\"{"}"},{"{"}\"program\":\"claude\"{"}"}]{"}"}'
-              </code>
-            </div>
-          </div>
-        </div>
+        <LandingPage
+          onCreateTeam={() => setShowLaunchForm(true)}
+          onWatchTeam={(teamId) => {
+            setSpectatorTeamId(teamId)
+            window.history.pushState({}, '', `/team/${teamId}`)
+          }}
+        />
       ) : (
         <div className="flex flex-1 overflow-hidden">
         {/* ── Team list (left) ───────────────────────────────── */}

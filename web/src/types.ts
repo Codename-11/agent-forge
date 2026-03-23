@@ -1,5 +1,87 @@
 /** Mirror of backend types for the web client */
 
+// ── Open Participation Types ──────────────────────────────────────
+
+export type TeamVisibility = 'private' | 'shared' | 'public'
+export type SessionLifecycle = 'ephemeral' | 'persistent'
+export type ParticipantOrigin = 'local' | 'remote' | 'human'
+
+export interface RemoteParticipant {
+  participantId: string
+  displayName: string
+  externalAgentId?: string
+  capabilities?: string[]
+  origin: ParticipantOrigin
+  joinedAt: string
+  leftAt?: string
+  canWrite: boolean
+  lastActiveAt: string
+}
+
+export interface JoinTeamRequest {
+  agent_name: string
+  agent_id?: string
+  capabilities?: string[]
+  auth_token?: string
+}
+
+export interface JoinTeamResponse {
+  participant_id: string
+  session_token: string
+  send_url: string
+  poll_url: string
+  stream_url: string
+  spectate_url: string
+  team_info: {
+    id: string
+    name: string
+    description: string
+    status: EnsembleTeam['status']
+    visibility: TeamVisibility
+    lifecycle: SessionLifecycle
+    agent_count: number
+    participant_count: number
+    created_at: string
+  }
+}
+
+export interface LobbyTeam {
+  id: string
+  name: string
+  description: string
+  status: EnsembleTeam['status']
+  agentCount: number
+  participantCount: number
+  spectatorCount: number
+  createdAt: string
+  tags?: string[]
+}
+
+export interface ShareLink {
+  url: string
+  joinToken?: string
+  createdAt: string
+  expiresAt?: string | null
+}
+
+export interface LobbyState {
+  teams: LobbyTeam[]
+  loading: boolean
+  error: string | null
+}
+
+export interface SpectatorState {
+  teamId: string
+  team: EnsembleTeam | null
+  messages: EnsembleMessage[]
+  connected: boolean
+  joinedAsHuman: boolean
+  participantId?: string
+  sessionToken?: string
+}
+
+// ── End Open Participation Types ──────────────────────────────────
+
 export type AgentPermissionMode = 'full' | 'plan-only' | 'review' | 'execute'
 
 export interface TeamConfig {
@@ -48,6 +130,12 @@ export interface EnsembleTeam {
   result?: EnsembleTeamResult
   plan?: TeamPlan
   config?: TeamConfig
+  visibility: TeamVisibility
+  lifecycle: SessionLifecycle
+  participants: RemoteParticipant[]
+  joinToken?: string
+  shareLink?: ShareLink
+  tags?: string[]
 }
 
 export interface EnsembleTeamAgent {
@@ -59,6 +147,7 @@ export interface EnsembleTeamAgent {
   status: 'spawning' | 'active' | 'idle' | 'done' | 'failed'
   worktreePath?: string
   worktreeBranch?: string
+  origin?: ParticipantOrigin
 }
 
 export interface EnsembleTeamResult {
@@ -80,6 +169,7 @@ export interface EnsembleMessage {
   type: 'chat' | 'decision' | 'question' | 'result'
   timestamp: string
   options?: string[]
+  participantId?: string
 }
 
 export interface CollabTemplateSummary {

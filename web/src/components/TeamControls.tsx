@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Settings, Save, Loader2, ChevronRight } from 'lucide-react'
+import { Settings, Save, Loader2, ChevronRight, Globe, Lock, Link, Copy, Check, Eye, Users } from 'lucide-react'
 import { cn } from '../lib/utils'
-import type { EnsembleTeam, TeamConfig } from '../types'
+import type { EnsembleTeam, TeamConfig, TeamVisibility } from '../types'
 
 interface TeamControlsProps {
   team: EnsembleTeam
@@ -94,6 +94,9 @@ export function TeamControls({ team, messageCount }: TeamControlsProps) {
 
   return (
     <div className="border-t border-border pt-3">
+      {/* Visibility controls */}
+      <VisibilityControls team={team} />
+
       <button
         onClick={() => setOpen(!open)}
         className="flex w-full items-center gap-1.5 text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
@@ -211,6 +214,162 @@ export function TeamControls({ team, messageCount }: TeamControlsProps) {
                 {saved ? 'Saved' : saving ? 'Saving...' : 'Save Config'}
               </button>
             </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Visibility Controls ──────────────────────────────────────────
+
+function VisibilityControls({ team }: { team: EnsembleTeam }) {
+  const [changing, setChanging] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [shareUrl, setShareUrl] = useState<string | null>(team.shareLink?.url ?? null)
+  const [open, setOpen] = useState(false)
+
+  const visibility = team.visibility ?? 'private'
+
+  const handleVisibilityChange = useCallback(async (v: TeamVisibility) => {
+    if (v === visibility) return
+    setChanging(true)
+    try {
+      const res = await fetch(`/api/ensemble/teams/${team.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibility: v }),
+      })
+      if (res.ok) {
+        const data = await res.json() as { team?: EnsembleTeam; shareLink?: { url: string } }
+        if (data.shareLink?.url) setShareUrl(data.shareLink.url)
+        else if (v === 'private') setShareUrl(null)
+      }
+    } catch { /* ignore */ } finally {
+      setChanging(false)
+    }
+  }, [team.id, visibility])
+
+  const handleCopyLink = useCallback(() => {
+    if (!shareUrl) return
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }).catch(() => {})
+  }, [shareUrl])
+
+  const visLabel = visibility === 'public' ? 'Public' : visibility === 'shared' ? 'Shared' : 'Private'
+  const VisIcon = visibility === 'public' ? Globe : visibility === 'shared' ? Link : Lock
+
+  return (
+    <div className="mb-3">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center gap-1.5 text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <VisIcon className="size-3" />
+        Visibility
+        <span className={cn(
+          'ml-1 rounded-full px-1.5 py-0.5 text-[0.6rem] font-medium',
+          visibility === 'public' ? 'bg-green-500/15 text-green-400' :
+          visibility === 'shared' ? 'bg-blue-500/15 text-blue-400' :
+          'bg-muted text-muted-foreground',
+        )}>
+          {visLabel}
+        </span>
+        <ChevronRight className={cn('ml-auto size-3 transition-transform', open && 'rotate-90')} />
+      </button>
+
+      {open && (
+        <div className="mt-2 flex flex-col gap-2">
+          {/* Toggle buttons */}
+          <div className="flex gap-1.5">
+            {(['private', 'shared', 'public'] as TeamVisibility[]).map(v => (
+              <button
+                key={v}
+                disabled={changing}
+                onClick={() => void handleVisibilityChange(v)}
+                className={cn(
+                  'flex-1 rounded-md px-2 py-1.5 text-[0.65rem] font-medium transition-colors capitalize',
+                  v === visibility
+                    ? v === 'public' ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : v === 'shared' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                      : 'bg-muted text-foreground border border-border'
+                    : 'text-muted-foreground hover:bg-muted border border-transparent',
+                )}
+              >
+                {v === 'private' && <Lock className="inline size-2.5 mr-1 mb-0.5" />}
+                {v === 'shared' && <Link className="inline size-2.5 mr-1 mb-0.5" />}
+                {v === 'public' && <Globe className="inline size-2.5 mr-1 mb-0.5" />}
+                {v}
+              </button>
+            ))}
+          </div>
+
+          {/* Descriptions */}
+          <p className="text-[0.6rem] text-muted-foreground/60">
+            {visibility === 'private' && 'Only local agents can access this team.'}
+            {visibility === 'shared' && 'Anyone with the link can spectate or join.'}
+            {visibility === 'public' && 'Listed in lobby. Anyone can spectate or join.'}
+          </p>
+
+          {/* Share link */}
+          {(visibility === 'shared' || visibility === 'public') && (
+            <div className="flex flex-col gap-1.5">
+              {shareUrl ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    readOnly
+                    value={shareUrl}
+                    className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-[0.6rem] font-mono text-muted-foreground/80 focus:outline-none"
+                  />
+                  <button
+                    onClick={handleCopyLink}
+                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[0.6rem] text-muted-foreground hover:bg-muted"
+                    title="Copy link"
+                  >
+                    {copied ? <Check className="size-3 text-green-400" /> : <Copy className="size-3" />}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/ensemble/teams/${team.id}/share`, { method: 'POST' })
+                      if (res.ok) {
+                        const data = await res.json() as { shareLink?: { url: string } }
+                        if (data.shareLink?.url) setShareUrl(data.shareLink.url)
+                      }
+                    } catch { /* ignore */ }
+                  }}
+                  className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2.5 py-1.5 text-[0.65rem] font-medium text-primary hover:bg-primary/20"
+                >
+                  <Link className="size-3" />
+                  Generate share link
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Participant count */}
+          {(team.participants ?? []).filter(p => !p.leftAt).length > 0 && (
+            <div className="flex items-center gap-1.5 text-[0.6rem] text-muted-foreground">
+              <Users className="size-3" />
+              <span>{(team.participants ?? []).filter(p => !p.leftAt).length} remote participant(s)</span>
+            </div>
+          )}
+
+          {/* Spectate link */}
+          {(visibility === 'shared' || visibility === 'public') && shareUrl && (
+            <a
+              href={shareUrl.replace('/team/', '/team/')}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[0.6rem] text-muted-foreground hover:text-foreground"
+            >
+              <Eye className="size-2.5" />
+              Open spectator view
+            </a>
           )}
         </div>
       )}

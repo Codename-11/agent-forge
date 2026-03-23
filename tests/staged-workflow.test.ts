@@ -26,6 +26,9 @@ function makeTeam(): EnsembleTeam {
     createdBy: 'test',
     createdAt: '2026-03-19T09:00:00.000Z',
     feedMode: 'live',
+    visibility: 'private',
+    lifecycle: 'ephemeral',
+    participants: [],
   }
 }
 

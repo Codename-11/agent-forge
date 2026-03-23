@@ -5,7 +5,8 @@
  */
 
 import { v4 as uuidv4 } from 'uuid'
-import type { EnsembleTeam, EnsembleTeamAgent, EnsembleMessage, CreateTeamRequest, CollabTemplatesFile, TeamPlan, PlanStep, TeamConfig } from '../types/ensemble'
+import { createHash, createHmac, randomBytes } from 'crypto'
+import type { EnsembleTeam, EnsembleTeamAgent, EnsembleMessage, CreateTeamRequest, CollabTemplatesFile, TeamPlan, PlanStep, TeamConfig, RemoteParticipant, JoinTeamRequest, JoinTeamResponse, TeamVisibility, SessionLifecycle, ShareLink, LobbyTeam } from '../types/ensemble'
 import {
   createTeam, getTeam, updateTeam, loadTeams,
   appendMessage, getMessages, deleteTeam as deleteTeamFromRegistry,
@@ -191,6 +192,9 @@ class EnsembleService {
   }
 
   private shouldAutoDisband(team: EnsembleTeam): boolean {
+    // Persistent teams never auto-disband
+    if (team.lifecycle === 'persistent') return false
+
     const messages = getMessages(team.id)
     const nonEnsembleMessages = messages.filter(message => message.from !== 'ensemble')
     const lastMessage = nonEnsembleMessages[nonEnsembleMessages.length - 1]
@@ -1568,6 +1572,318 @@ export async function cloneTeam(
   }
 
   return result
+}
+
+// ── Open Participation ─────────────────────────────────────────────
+
+// Session token helpers (module-level so server.ts can also use them)
+const SESSION_SECRET = process.env.ENSEMBLE_SESSION_SECRET || randomBytes(32).toString('hex')
+
+export function generateSessionToken(participantId: string, teamId: string): string {
+  const payload = JSON.stringify({ pid: participantId, tid: teamId, iat: Date.now() })
+  const encoded = Buffer.from(payload).toString('base64url')
+  const sig = createHmac('sha256', SESSION_SECRET).update(encoded).digest('base64url')
+  return `${encoded}.${sig}`
+}
+
+export function validateSessionToken(token: string): { pid: string; tid: string } | null {
+  const [encoded, sig] = token.split('.')
+  if (!encoded || !sig) return null
+  const expected = createHmac('sha256', SESSION_SECRET).update(encoded).digest('base64url')
+  if (sig !== expected) return null
+  try {
+    return JSON.parse(Buffer.from(encoded, 'base64url').toString())
+  } catch {
+    return null
+  }
+}
+
+export function joinTeam(
+  teamId: string,
+  request: JoinTeamRequest,
+  _clientIp: string,
+): ServiceResult<JoinTeamResponse> {
+  const team = getTeam(teamId)
+  if (!team) return { error: 'Team not found', status: 404 }
+
+  // Visibility gate
+  if (team.visibility === 'private') {
+    return { error: 'This team is private', status: 403 }
+  }
+
+  if (team.visibility === 'shared') {
+    if (!request.auth_token || request.auth_token !== team.joinToken) {
+      return { error: 'Invalid or missing join token', status: 403 }
+    }
+  }
+
+  // Rate limit: max participants per team
+  const maxParticipants = parseInt(process.env.ENSEMBLE_MAX_PARTICIPANTS || '20', 10)
+  const activeParticipants = (team.participants || []).filter(p => !p.leftAt)
+  if (activeParticipants.length >= maxParticipants) {
+    return { error: `Team is full (max ${maxParticipants} remote participants)`, status: 429 }
+  }
+
+  // Name collision check
+  const nameTaken = activeParticipants.some(p => p.displayName === request.agent_name)
+    || team.agents.some(a => a.name === request.agent_name)
+  if (nameTaken) {
+    return { error: 'Name already taken in this team', status: 409 }
+  }
+
+  const participantId = `p-${uuidv4()}`
+  const sessionToken = generateSessionToken(participantId, teamId)
+  const tokenHash = createHash('sha256').update(sessionToken).digest('hex')
+  const now = new Date().toISOString()
+
+  const participant: RemoteParticipant = {
+    participantId,
+    displayName: request.agent_name,
+    externalAgentId: request.agent_id,
+    capabilities: request.capabilities,
+    origin: 'remote',
+    joinedAt: now,
+    canWrite: true,
+    tokenHash,
+    lastActiveAt: now,
+  }
+
+  const participants = [...(team.participants || []), participant]
+  updateTeam(teamId, { participants })
+
+  appendMessage(teamId, {
+    id: uuidv4(),
+    teamId,
+    from: 'ensemble',
+    to: 'team',
+    content: `${request.agent_name} joined the team (remote)`,
+    type: 'chat',
+    timestamp: now,
+  })
+
+  const baseUrl = process.env.ENSEMBLE_URL || 'http://localhost:23000'
+
+  return {
+    data: {
+      participant_id: participantId,
+      session_token: sessionToken,
+      send_url: `${baseUrl}/api/ensemble/teams/${teamId}/messages`,
+      poll_url: `${baseUrl}/api/ensemble/teams/${teamId}/feed`,
+      stream_url: `${baseUrl}/api/ensemble/teams/${teamId}/stream`,
+      spectate_url: `${baseUrl}/api/ensemble/teams/${teamId}/spectate`,
+      team_info: {
+        id: team.id,
+        name: team.name,
+        description: team.description,
+        status: team.status,
+        visibility: team.visibility,
+        lifecycle: team.lifecycle,
+        agent_count: team.agents.length,
+        participant_count: participants.filter(p => !p.leftAt).length,
+        created_at: team.createdAt,
+      },
+    },
+    status: 201,
+  }
+}
+
+export async function sendRemoteMessage(
+  teamId: string,
+  participantId: string,
+  content: string,
+  to?: string,
+): Promise<ServiceResult<{ message: EnsembleMessage }>> {
+  const team = getTeam(teamId)
+  if (!team) return { error: 'Team not found', status: 404 }
+
+  const participant = (team.participants || []).find(
+    p => p.participantId === participantId && !p.leftAt
+  )
+  if (!participant) return { error: 'Participant not found or has left', status: 403 }
+  if (!participant.canWrite) return { error: 'Spectator-only participants cannot send messages', status: 403 }
+
+  // Update last active timestamp
+  const participants = team.participants.map(p =>
+    p.participantId === participantId ? { ...p, lastActiveAt: new Date().toISOString() } : p
+  )
+  updateTeam(teamId, { participants })
+
+  return sendTeamMessage(
+    teamId,
+    to || 'team',
+    content,
+    participant.displayName,
+    undefined,
+    undefined,
+    'chat',
+  )
+}
+
+export function leaveTeam(
+  teamId: string,
+  participantId: string,
+): ServiceResult<{ left: boolean }> {
+  const team = getTeam(teamId)
+  if (!team) return { error: 'Team not found', status: 404 }
+
+  const participants = (team.participants || []).map(p =>
+    p.participantId === participantId && !p.leftAt
+      ? { ...p, leftAt: new Date().toISOString() }
+      : p
+  )
+  updateTeam(teamId, { participants })
+
+  return { data: { left: true }, status: 200 }
+}
+
+export function kickParticipant(
+  teamId: string,
+  participantId: string,
+): ServiceResult<{ kicked: boolean }> {
+  const team = getTeam(teamId)
+  if (!team) return { error: 'Team not found', status: 404 }
+
+  const participants = (team.participants || []).map(p =>
+    p.participantId === participantId
+      ? { ...p, leftAt: new Date().toISOString() }
+      : p
+  )
+  updateTeam(teamId, { participants })
+
+  return { data: { kicked: true }, status: 200 }
+}
+
+export function updateTeamVisibility(
+  teamId: string,
+  visibility?: TeamVisibility,
+  lifecycle?: SessionLifecycle,
+  tags?: string[],
+): ServiceResult<{ team: EnsembleTeam; shareLink?: ShareLink }> {
+  const team = getTeam(teamId)
+  if (!team) return { error: 'Team not found', status: 404 }
+
+  const updates: Partial<EnsembleTeam> = {}
+
+  if (visibility && visibility !== team.visibility) {
+    if (visibility === 'private') {
+      // Downgrade: disconnect remote participants
+      updates.participants = (team.participants || []).map(p =>
+        !p.leftAt ? { ...p, leftAt: new Date().toISOString() } : p
+      )
+      updates.joinToken = undefined
+      updates.shareLink = undefined
+    }
+
+    if ((visibility === 'shared' || visibility === 'public') && !team.joinToken) {
+      updates.joinToken = randomBytes(24).toString('base64url')
+    }
+
+    updates.visibility = visibility
+
+    appendMessage(teamId, {
+      id: uuidv4(), teamId, from: 'ensemble', to: 'team',
+      content: `Team visibility changed to ${visibility}`,
+      type: 'chat', timestamp: new Date().toISOString(),
+    })
+  }
+
+  if (lifecycle) updates.lifecycle = lifecycle
+  if (tags) updates.tags = tags
+
+  const updated = updateTeam(teamId, updates)
+
+  let shareLink: ShareLink | undefined
+  if (updated && (updated.visibility === 'shared' || updated.visibility === 'public')) {
+    const baseUrl = process.env.ENSEMBLE_URL || 'http://localhost:23000'
+    shareLink = {
+      url: `${baseUrl}/team/${teamId}?token=${updated.joinToken}`,
+      joinToken: updated.joinToken,
+      createdAt: new Date().toISOString(),
+      expiresAt: null,
+    }
+    updateTeam(teamId, { shareLink })
+  }
+
+  return { data: { team: updated!, shareLink }, status: 200 }
+}
+
+export function generateShareLink(
+  teamId: string,
+  _expiresIn?: string,
+): ServiceResult<{ shareLink: ShareLink }> {
+  const team = getTeam(teamId)
+  if (!team) return { error: 'Team not found', status: 404 }
+
+  // Auto-flip to shared if private
+  let currentTeam = team
+  if (currentTeam.visibility === 'private') {
+    const result = updateTeamVisibility(teamId, 'shared')
+    if (result.error || !result.data) return { error: result.error || 'Failed to update visibility', status: result.status }
+    currentTeam = result.data.team
+  }
+
+  if (!currentTeam.joinToken) {
+    const newToken = randomBytes(24).toString('base64url')
+    updateTeam(teamId, { joinToken: newToken })
+    currentTeam = { ...currentTeam, joinToken: newToken }
+  }
+
+  const baseUrl = process.env.ENSEMBLE_URL || 'http://localhost:23000'
+  const shareLink: ShareLink = {
+    url: `${baseUrl}/team/${teamId}?token=${currentTeam.joinToken}`,
+    joinToken: currentTeam.joinToken,
+    createdAt: new Date().toISOString(),
+    expiresAt: null,
+  }
+  updateTeam(teamId, { shareLink })
+
+  return { data: { shareLink }, status: 200 }
+}
+
+// Spectator count (managed by server.ts, but we expose a hook for it)
+let _getSpectatorCount: (teamId: string) => number = () => 0
+
+export function setSpectatorCountFn(fn: (teamId: string) => number): void {
+  _getSpectatorCount = fn
+}
+
+export function getSpectatorCount(teamId: string): number {
+  return _getSpectatorCount(teamId)
+}
+
+export function getLobbyTeams(options?: {
+  tag?: string
+  status?: string
+  limit?: number
+  offset?: number
+}): ServiceResult<{ teams: LobbyTeam[]; total: number }> {
+  const { tag, status, limit = 50, offset = 0 } = options || {}
+
+  let teams = loadTeams().filter(t => t.visibility === 'public')
+
+  const allowedStatuses = status ? status.split(',') : ['active', 'forming']
+  teams = teams.filter(t => allowedStatuses.includes(t.status))
+
+  if (tag) {
+    teams = teams.filter(t => t.tags?.includes(tag))
+  }
+
+  const total = teams.length
+  const paged = teams.slice(offset, offset + Math.min(limit, 100))
+
+  const lobbyTeams: LobbyTeam[] = paged.map(t => ({
+    id: t.id,
+    name: t.name,
+    description: t.description,
+    status: t.status,
+    agentCount: t.agents.length,
+    participantCount: (t.participants || []).filter(p => !p.leftAt).length,
+    spectatorCount: getSpectatorCount(t.id),
+    createdAt: t.createdAt,
+    tags: t.tags,
+  }))
+
+  return { data: { teams: lobbyTeams, total }, status: 200 }
 }
 
 /* ── Export types ────────────────────────────────────────────────── */

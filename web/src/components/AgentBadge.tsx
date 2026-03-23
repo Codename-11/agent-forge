@@ -1,4 +1,5 @@
 import { cn } from '../lib/utils'
+import type { ParticipantOrigin } from '../types'
 
 const AGENT_COLORS: Record<string, { dot: string; text: string }> = {
   codex:  { dot: 'bg-agent-codex',  text: 'text-agent-codex' },
@@ -15,15 +16,29 @@ function getAgentClasses(program: string): { dot: string; text: string } {
   return { dot: 'bg-agent-default', text: 'text-agent-default' }
 }
 
+/** Small badge showing origin: local (no badge), remote (🌐), human (👤) */
+function OriginBadge({ origin }: { origin?: ParticipantOrigin }) {
+  if (!origin || origin === 'local') return null
+  return (
+    <span
+      className="text-[0.65rem] leading-none opacity-70"
+      title={origin === 'remote' ? 'Remote agent' : 'Human participant'}
+    >
+      {origin === 'remote' ? '🌐' : '👤'}
+    </span>
+  )
+}
+
 interface AgentBadgeProps {
   name: string
   program: string
   role?: string
   showRole?: boolean
   size?: 'sm' | 'md' | 'lg'
+  origin?: ParticipantOrigin
 }
 
-export function AgentBadge({ name, program, role, showRole = false, size = 'sm' }: AgentBadgeProps) {
+export function AgentBadge({ name, program, role, showRole = false, size = 'sm', origin }: AgentBadgeProps) {
   const colors = getAgentClasses(program)
   const isLead = role === 'lead'
   return (
@@ -44,6 +59,7 @@ export function AgentBadge({ name, program, role, showRole = false, size = 'sm' 
       >
         {name}
       </span>
+      <OriginBadge origin={origin} />
       {showRole && isLead && (
         <span
           className={cn(
@@ -54,6 +70,32 @@ export function AgentBadge({ name, program, role, showRole = false, size = 'sm' 
           (Lead)
         </span>
       )}
+    </span>
+  )
+}
+
+/** Badge for a remote participant (not a local agent) */
+interface ParticipantBadgeProps {
+  displayName: string
+  origin: ParticipantOrigin
+  size?: 'sm' | 'md'
+}
+
+export function ParticipantBadge({ displayName, origin, size = 'sm' }: ParticipantBadgeProps) {
+  const icon = origin === 'human' ? '👤' : '🌐'
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className={cn('text-muted-foreground', size === 'sm' ? 'text-xs' : 'text-sm')}>
+        {icon}
+      </span>
+      <span
+        className={cn(
+          'font-medium text-muted-foreground',
+          size === 'sm' ? 'text-xs' : 'text-sm',
+        )}
+      >
+        {displayName}
+      </span>
     </span>
   )
 }

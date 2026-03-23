@@ -13,6 +13,9 @@ import {
   createEnsembleTeam, getEnsembleTeam, listEnsembleTeams,
   getTeamFeed, sendTeamMessage, disbandTeam, deleteTeamPermanently, reopenTeam,
   addAgentToTeam, cloneTeam, exportTeam, executeTeam, listCollabTemplates,
+  joinTeam, sendRemoteMessage, leaveTeam, kickParticipant,
+  updateTeamVisibility, generateShareLink, getLobbyTeams,
+  validateSessionToken, setSpectatorCountFn,
 } from './services/ensemble-service'
 import { getTeam, updateTeam } from './lib/ensemble-registry'
 import type { TeamConfig } from './types/ensemble'
@@ -55,6 +58,19 @@ type SessionSseConnection = {
 }
 const activeSessionSseConnections = new Set<SessionSseConnection>()
 
+// Track spectator SSE connections
+type SpectatorSseConnection = {
+  res: http.ServerResponse
+  interval: ReturnType<typeof setInterval>
+  teamId: string
+}
+const activeSpectatorConnections = new Set<SpectatorSseConnection>()
+
+// Register spectator count function with the service
+setSpectatorCountFn((teamId: string) =>
+  [...activeSpectatorConnections].filter(c => c.teamId === teamId).length
+)
+
 /** Validate session name: alphanumeric, hyphens, underscores, dots only */
 function isValidSessionName(name: string): boolean {
   return /^[a-zA-Z0-9\-_.]+$/.test(name)
@@ -86,15 +102,17 @@ function isAllowedOrigin(origin: string): boolean {
   return DEFAULT_CORS_ORIGIN_PATTERNS.some(pattern => pattern.test(origin))
 }
 
-function buildCorsHeaders(origin?: string): Record<string, string> {
+function buildCorsHeaders(origin?: string, isPublicEndpoint?: boolean): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Vary': 'Origin',
   }
 
-  if (origin && isAllowedOrigin(origin)) {
+  if (isPublicEndpoint && process.env.ENSEMBLE_PUBLIC_CORS === 'true') {
+    headers['Access-Control-Allow-Origin'] = '*'
+  } else if (origin && isAllowedOrigin(origin)) {
     headers['Access-Control-Allow-Origin'] = origin
   }
 
@@ -338,6 +356,160 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // ── Lobby: GET /api/ensemble/lobby ──────────────────────────────
+    if (path === '/api/ensemble/lobby' && method === 'GET') {
+      const tag = url.searchParams.get('tag') || undefined
+      const status = url.searchParams.get('status') || undefined
+      const limit = parseInt(url.searchParams.get('limit') || '50', 10)
+      const offset = parseInt(url.searchParams.get('offset') || '0', 10)
+      const result = getLobbyTeams({ tag, status, limit, offset })
+      return json(res, result.data, result.status, origin)
+    }
+
+    // ── Open Participation sub-routes (must match before teamMatch) ──
+
+    // POST /api/ensemble/teams/:id/join
+    const joinMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/join$/)
+    if (joinMatch && method === 'POST') {
+      const teamId = joinMatch[1]
+      let body: Record<string, unknown> = {}
+      try { body = JSON.parse(await readBody(req)) } catch { /* empty ok */ }
+      const clientIp = getClientIp(req)
+      const result = joinTeam(teamId, body as unknown as Parameters<typeof joinTeam>[1], clientIp)
+      if (result.error) return json(res, { error: result.error }, result.status, origin)
+      return json(res, result.data, result.status, origin)
+    }
+
+    // POST /api/ensemble/teams/:id/messages (remote participant send)
+    const remoteMessageMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/messages$/)
+    if (remoteMessageMatch && method === 'POST') {
+      const teamId = remoteMessageMatch[1]
+      const authHeader = req.headers.authorization
+      if (!authHeader?.startsWith('Bearer ')) {
+        return json(res, { error: 'Missing Authorization header' }, 401, origin)
+      }
+      const token = authHeader.slice(7)
+      const payload = validateSessionToken(token)
+      if (!payload || payload.tid !== teamId) {
+        return json(res, { error: 'Invalid or expired session token' }, 401, origin)
+      }
+      let body: Record<string, unknown> = {}
+      try { body = JSON.parse(await readBody(req)) } catch { /* empty ok */ }
+      const content = typeof body.content === 'string' ? body.content : ''
+      if (!content.trim()) {
+        return json(res, { error: 'content is required' }, 400, origin)
+      }
+      const result = await sendRemoteMessage(teamId, payload.pid, content, typeof body.to === 'string' ? body.to : undefined)
+      if (result.error) return json(res, { error: result.error }, result.status, origin)
+      return json(res, result.data, result.status, origin)
+    }
+
+    // POST /api/ensemble/teams/:id/leave
+    const leaveMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/leave$/)
+    if (leaveMatch && method === 'POST') {
+      const teamId = leaveMatch[1]
+      const authHeader = req.headers.authorization
+      if (!authHeader?.startsWith('Bearer ')) {
+        return json(res, { error: 'Missing Authorization header' }, 401, origin)
+      }
+      const token = authHeader.slice(7)
+      const payload = validateSessionToken(token)
+      if (!payload || payload.tid !== teamId) {
+        return json(res, { error: 'Invalid or expired session token' }, 401, origin)
+      }
+      const result = leaveTeam(teamId, payload.pid)
+      if (result.error) return json(res, { error: result.error }, result.status, origin)
+      return json(res, result.data, result.status, origin)
+    }
+
+    // DELETE /api/ensemble/teams/:id/participants/:pid (kick)
+    const kickMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/participants\/([^/]+)$/)
+    if (kickMatch && method === 'DELETE') {
+      const [, teamId, participantId] = kickMatch
+      const result = kickParticipant(teamId, participantId)
+      if (result.error) return json(res, { error: result.error }, result.status, origin)
+      return json(res, result.data, result.status, origin)
+    }
+
+    // POST /api/ensemble/teams/:id/share
+    const shareMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/share$/)
+    if (shareMatch && method === 'POST') {
+      const teamId = shareMatch[1]
+      let body: Record<string, unknown> = {}
+      try { body = JSON.parse(await readBody(req)) } catch { /* empty ok */ }
+      const expiresIn = typeof body.expiresIn === 'string' ? body.expiresIn : undefined
+      const result = generateShareLink(teamId, expiresIn)
+      if (result.error) return json(res, { error: result.error }, result.status, origin)
+      return json(res, result.data, result.status, origin)
+    }
+
+    // GET /api/ensemble/teams/:id/spectate (SSE, no auth for public; token for shared)
+    const spectateMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)\/spectate$/)
+    if (spectateMatch && method === 'GET') {
+      const teamId = spectateMatch[1]
+      const team = getTeam(teamId)
+      if (!team) return json(res, { error: 'Team not found' }, 404, origin)
+
+      // Auth gate
+      if (team.visibility === 'private') {
+        return json(res, { error: 'This team is private' }, 403, origin)
+      }
+      if (team.visibility === 'shared') {
+        const token = url.searchParams.get('token')
+        if (!token || token !== team.joinToken) {
+          return json(res, { error: 'Invalid or missing token' }, 403, origin)
+        }
+      }
+      // public → no auth needed
+
+      const sseHeaders = buildCorsHeaders(origin, team.visibility === 'public')
+      sseHeaders['Content-Type'] = 'text/event-stream'
+      sseHeaders['Cache-Control'] = 'no-cache'
+      sseHeaders['Connection'] = 'keep-alive'
+      res.writeHead(200, sseHeaders)
+
+      // Send init
+      const teamResult = getEnsembleTeam(teamId)
+      const initData = teamResult.data
+      res.write(`event: init\ndata: ${JSON.stringify({
+        team: initData?.team,
+        messages: initData?.messages ?? [],
+        participants: initData?.team.participants ?? [],
+      })}\n\n`)
+
+      let lastTimestamp: string | undefined
+      const msgs = initData?.messages ?? []
+      if (msgs.length > 0) lastTimestamp = msgs[msgs.length - 1].timestamp
+
+      const interval = setInterval(() => {
+        const feedResult = getTeamFeed(teamId, lastTimestamp)
+        if (feedResult.error) {
+          res.write(`event: error\ndata: ${JSON.stringify({ error: feedResult.error })}\n\n`)
+          res.end()
+          return
+        }
+        const newMsgs = feedResult.data!.messages
+        if (newMsgs.length > 0) {
+          lastTimestamp = newMsgs[newMsgs.length - 1].timestamp
+          res.write(`event: message\ndata: ${JSON.stringify({ messages: newMsgs })}\n\n`)
+        }
+        const currentTeam = getTeam(teamId)
+        if (currentTeam?.status === 'disbanded') {
+          res.write(`event: disbanded\ndata: ${JSON.stringify({ team: currentTeam })}\n\n`)
+          res.end()
+        }
+      }, 2000)
+      interval.unref()
+
+      const conn: SpectatorSseConnection = { res, interval, teamId }
+      activeSpectatorConnections.add(conn)
+      req.on('close', () => {
+        clearInterval(interval)
+        activeSpectatorConnections.delete(conn)
+      })
+      return
+    }
+
     // Team operations: /api/ensemble/teams/:id
     const teamMatch = path.match(/^\/api\/ensemble\/teams\/([^/]+)$/)
     if (teamMatch) {
@@ -355,6 +527,33 @@ const server = http.createServer(async (req, res) => {
           return json(res, { error: 'Bad Request: malformed JSON' }, 400, origin)
         }
         const result = await sendTeamMessage(teamId, (body.to as string) || 'team', body.content as string, body.from as string, body.id as string, body.timestamp as string, body.type as string)
+        if (result.error) return json(res, { error: result.error }, result.status, origin)
+        return json(res, result.data, result.status, origin)
+      }
+      if (method === 'PATCH') {
+        let body: Record<string, unknown>
+        try {
+          body = JSON.parse(await readBody(req))
+        } catch {
+          return json(res, { error: 'Bad Request: malformed JSON' }, 400, origin)
+        }
+        const visibility = body.visibility as string | undefined
+        const lifecycle = body.lifecycle as string | undefined
+        const tags = Array.isArray(body.tags) ? body.tags as string[] : undefined
+        const validVisibility = ['private', 'shared', 'public']
+        const validLifecycle = ['ephemeral', 'persistent']
+        if (visibility && !validVisibility.includes(visibility)) {
+          return json(res, { error: 'Invalid visibility value' }, 400, origin)
+        }
+        if (lifecycle && !validLifecycle.includes(lifecycle)) {
+          return json(res, { error: 'Invalid lifecycle value' }, 400, origin)
+        }
+        const result = updateTeamVisibility(
+          teamId,
+          visibility as Parameters<typeof updateTeamVisibility>[1],
+          lifecycle as Parameters<typeof updateTeamVisibility>[2],
+          tags,
+        )
         if (result.error) return json(res, { error: result.error }, result.status, origin)
         return json(res, result.data, result.status, origin)
       }

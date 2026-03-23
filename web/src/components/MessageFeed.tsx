@@ -4,9 +4,13 @@ import { cn } from '../lib/utils'
 import type { EnsembleMessage, EnsembleTeamAgent } from '../types'
 import { AgentBadge } from './AgentBadge'
 
+import type { RemoteParticipant } from '../types'
+
 interface MessageFeedProps {
   messages: EnsembleMessage[]
   agents: EnsembleTeamAgent[]
+  participants?: RemoteParticipant[]
+  readOnly?: boolean
 }
 
 /* ── Agent border color mapping ────────────────────────────────── */
@@ -141,7 +145,7 @@ function isSameDay(a: string, b: string): boolean {
 
 /* ── Component ─────────────────────────────────────────────────── */
 
-export function MessageFeed({ messages, agents }: MessageFeedProps) {
+export function MessageFeed({ messages, agents, participants = [], readOnly = false }: MessageFeedProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [autoScroll, setAutoScroll] = useState(true)
@@ -284,13 +288,23 @@ export function MessageFeed({ messages, agents }: MessageFeedProps) {
               )}
 
               {/* ── Agent messages (left-aligned with colored border) */}
-              {!isSystem && !isUser && (
+              {!isSystem && !isUser && (() => {
+                // Check if sender is a remote participant
+                const remoteParticipant = participants.find(p => p.displayName === msg.from || p.participantId === msg.participantId)
+                const isRemote = !!remoteParticipant || !!msg.participantId
+                return (
                 <div className={cn('flex', !grouped && 'mt-3')}>
                   <div className="flex max-w-[80%] flex-col">
                     {!grouped && (
                       <div className="mb-1 flex items-center gap-2 pl-3">
                         {agent ? (
-                          <AgentBadge name={agent.name} program={agent.program} role={agent.role} showRole />
+                          <AgentBadge name={agent.name} program={agent.program} role={agent.role} showRole origin={agent.origin} />
+                        ) : isRemote ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
+                            <span>{remoteParticipant?.origin === 'human' ? '👤' : '🌐'}</span>
+                            <span>{msg.from}</span>
+                            <span className="text-[0.6rem] text-muted-foreground/50 font-normal">({remoteParticipant?.origin ?? 'remote'})</span>
+                          </span>
                         ) : (
                           <span className="text-xs font-semibold text-foreground">{shortAgentName(msg.from, agents)}</span>
                         )}
@@ -310,8 +324,8 @@ export function MessageFeed({ messages, agents }: MessageFeedProps) {
                     )}
                     <div
                       className={cn(
-                        'rounded-lg rounded-tl-sm border-l-2 bg-card px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap break-words',
-                        agent ? getAgentBorderClass(agent.program) : 'border-l-agent-default',
+                        'rounded-lg rounded-tl-sm border-l-2 px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap break-words',
+                        agent ? `${getAgentBorderClass(agent.program)} bg-card` : isRemote ? 'border-l-purple-500/60 bg-purple-950/20' : 'border-l-agent-default bg-card',
                         grouped && 'mt-0.5',
                       )}
                       title={grouped ? formatFullTimestamp(msg.timestamp) : undefined}
@@ -331,7 +345,8 @@ export function MessageFeed({ messages, agents }: MessageFeedProps) {
                     )}
                   </div>
                 </div>
-              )}
+                )
+              })()}
             </div>
           )
         })}

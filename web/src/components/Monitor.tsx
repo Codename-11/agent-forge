@@ -481,7 +481,7 @@ export function Monitor({ team, messages, connected, error, onSend, onDisband, o
                 {/* Banners: completion confirmation + agent questions */}
                 <CompletionBanner messages={messages} teamId={team.id} onDisband={onDisband} />
                 <QuestionBanner messages={messages} onSend={onSend} />
-                <MessageFeed messages={messages} agents={team.agents} />
+                <MessageFeed messages={messages} agents={team.agents} participants={team.participants ?? []} />
                 <ControlPanel agents={team.agents} onSend={onSend} disabled={isTerminal} />
               </div>
               {selectedSession && selectedAgent && (

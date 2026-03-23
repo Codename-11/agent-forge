@@ -30,7 +30,14 @@ export function useEnsemble(teamId: string | null): UseEnsembleReturn {
         return
       }
       const data = await res.json()
-      setTeam(data.team ?? data)
+      const rawTeam = data.team ?? data
+      // Ensure migration defaults for new fields
+      setTeam({
+        visibility: 'private',
+        lifecycle: 'ephemeral',
+        participants: [],
+        ...rawTeam,
+      })
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch team')

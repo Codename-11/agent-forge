@@ -81,8 +81,22 @@ function withTeamsLock<T>(fn: () => T): T {
   }
 }
 
+function migrateTeam(raw: unknown): EnsembleTeam {
+  const team = raw as EnsembleTeam
+  return {
+    ...team,
+    visibility: team.visibility ?? 'private',
+    lifecycle: team.lifecycle ?? 'ephemeral',
+    participants: team.participants ?? [],
+  }
+}
+
 export function loadTeams(): EnsembleTeam[] {
-  return withTeamsLock(() => readTeamsFile())
+  return withTeamsLock(() => (readTeamsFile() as unknown[]).map(migrateTeam))
+}
+
+export function getTeamRaw(id: string): EnsembleTeam | undefined {
+  return loadTeams().find(t => t.id === id)
 }
 
 export function saveTeams(teams: EnsembleTeam[]): void {
@@ -94,6 +108,7 @@ export function saveTeams(teams: EnsembleTeam[]): void {
 export function getTeam(id: string): EnsembleTeam | undefined {
   return loadTeams().find(t => t.id === id)
 }
+
 
 export function createTeam(request: CreateTeamRequest): EnsembleTeam {
   return withTeamsLock(() => {
@@ -127,11 +142,16 @@ export function createTeam(request: CreateTeamRequest): EnsembleTeam {
           role: a.role || (i === 0 ? 'lead' : 'worker'),
           hostId: a.hostId || '',
           status: 'spawning' as const,
+          origin: 'local' as const,
         }
       }),
       createdBy: getCreatedBy(),
       createdAt: new Date().toISOString(),
       feedMode: request.feedMode || 'live',
+      visibility: request.visibility ?? 'private',
+      lifecycle: request.lifecycle ?? 'ephemeral',
+      participants: [],
+      ...(request.tags ? { tags: request.tags } : {}),
       ...(request.config ? { config: request.config } : {}),
     }
     teams.push(team)

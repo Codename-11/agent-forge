@@ -60,6 +60,9 @@ function makeTeam(overrides: Partial<EnsembleTeam> = {}): EnsembleTeam {
     completedAt: overrides.completedAt,
     feedMode: overrides.feedMode ?? 'live',
     result: overrides.result,
+    visibility: overrides.visibility ?? 'private',
+    lifecycle: overrides.lifecycle ?? 'ephemeral',
+    participants: overrides.participants ?? [],
   }
 }
 

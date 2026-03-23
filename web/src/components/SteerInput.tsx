@@ -6,12 +6,14 @@ import type { EnsembleTeamAgent } from '../types'
 type SendState = 'idle' | 'sending' | 'sent' | 'error'
 
 interface SteerInputProps {
-  agents: EnsembleTeamAgent[]
+  teamId?: string
+  agents?: EnsembleTeamAgent[]
   onSend: (content: string, to?: string) => Promise<void>
   disabled?: boolean
+  placeholder?: string
 }
 
-export function SteerInput({ agents, onSend, disabled = false }: SteerInputProps) {
+export function SteerInput({ agents = [], onSend, disabled = false, placeholder }: SteerInputProps) {
   const [content, setContent] = useState('')
   const [target, setTarget] = useState('team')
   const [sendState, setSendState] = useState<SendState>('idle')
