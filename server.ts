@@ -1260,6 +1260,202 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
       return
     }
 
+    // -----------------------------------------------------------------------
+    // Deploy / Update endpoints
+    // -----------------------------------------------------------------------
+
+    // GET /api/ensemble/deploy/status — current deployment info
+    if (path === '/api/ensemble/deploy/status' && method === 'GET') {
+      const { execSync: execSyncCmd } = await import('child_process')
+      const projectRoot = __dirname
+      const result: Record<string, unknown> = {
+        commitHash: null,
+        commitMessage: null,
+        branch: null,
+        lastDeployTime: null,
+        serviceActive: false,
+        commitsBehind: 0,
+        upToDate: true,
+      }
+
+      try {
+        result.commitHash = execSyncCmd('git rev-parse HEAD', { cwd: projectRoot, encoding: 'utf-8' }).trim()
+      } catch { /* git not available */ }
+
+      try {
+        result.commitMessage = execSyncCmd('git log -1 --pretty=%s', { cwd: projectRoot, encoding: 'utf-8' }).trim()
+      } catch { /* ignore */ }
+
+      try {
+        result.branch = execSyncCmd('git branch --show-current', { cwd: projectRoot, encoding: 'utf-8' }).trim()
+      } catch { /* ignore */ }
+
+      // Last deploy time from web/dist/index.html mtime
+      try {
+        const distIndex = nodePath.join(projectRoot, 'web', 'dist', 'index.html')
+        const stat = fs.statSync(distIndex)
+        result.lastDeployTime = stat.mtime.toISOString()
+      } catch { /* dist not built yet */ }
+
+      // Service status (Linux only)
+      try {
+        const status = execSyncCmd('systemctl --user is-active openclaw-ensemble', { cwd: projectRoot, encoding: 'utf-8' }).trim()
+        result.serviceActive = status === 'active'
+      } catch { result.serviceActive = false }
+
+      // Commits behind origin/main
+      try {
+        // Check if origin/main ref exists
+        execSyncCmd('git rev-parse --verify origin/main', { cwd: projectRoot, encoding: 'utf-8', stdio: 'pipe' })
+        const behindOutput = execSyncCmd('git rev-list --count HEAD..origin/main', { cwd: projectRoot, encoding: 'utf-8' }).trim()
+        const behind = parseInt(behindOutput, 10) || 0
+        result.commitsBehind = behind
+        result.upToDate = behind === 0
+      } catch { /* origin/main not available */ }
+
+      return json(res, result, 200, origin)
+    }
+
+    // POST /api/ensemble/deploy/check — fetch and return diff info
+    if (path === '/api/ensemble/deploy/check' && method === 'POST') {
+      const { execSync: execSyncCmd } = await import('child_process')
+      const projectRoot = __dirname
+
+      try {
+        execSyncCmd('git fetch origin main', { cwd: projectRoot, encoding: 'utf-8', stdio: 'pipe' })
+      } catch (err) {
+        return json(res, { error: 'Failed to fetch from origin: ' + (err instanceof Error ? err.message : String(err)) }, 500, origin)
+      }
+
+      let commitsBehind = 0
+      const commits: Array<{ hash: string; message: string; author: string; date: string }> = []
+      let filesChanged: string[] = []
+
+      try {
+        const behindOutput = execSyncCmd('git rev-list --count HEAD..origin/main', { cwd: projectRoot, encoding: 'utf-8' }).trim()
+        commitsBehind = parseInt(behindOutput, 10) || 0
+      } catch { /* ignore */ }
+
+      try {
+        const logOutput = execSyncCmd('git log --format=%H%n%s%n%an%n%aI HEAD..origin/main', { cwd: projectRoot, encoding: 'utf-8' }).trim()
+        if (logOutput) {
+          const lines = logOutput.split('\n')
+          for (let i = 0; i + 3 < lines.length; i += 4) {
+            commits.push({
+              hash: lines[i],
+              message: lines[i + 1],
+              author: lines[i + 2],
+              date: lines[i + 3],
+            })
+          }
+        }
+      } catch { /* ignore */ }
+
+      try {
+        const diffOutput = execSyncCmd('git diff --name-only HEAD..origin/main', { cwd: projectRoot, encoding: 'utf-8' }).trim()
+        if (diffOutput) {
+          filesChanged = diffOutput.split('\n').filter(Boolean)
+        }
+      } catch { /* ignore */ }
+
+      return json(res, {
+        commitsBehind,
+        commits,
+        filesChanged,
+        upToDate: commitsBehind === 0,
+      }, 200, origin)
+    }
+
+    // GET /api/ensemble/deploy/run — execute full deploy with SSE streaming
+    // Uses GET so EventSource can connect directly from the browser
+    if (path === '/api/ensemble/deploy/run' && (method === 'GET' || method === 'POST')) {
+      const { spawn: spawnDeploy } = await import('child_process')
+      const projectRoot = __dirname
+      const webDir = nodePath.join(projectRoot, 'web')
+      const isWindows = os.platform() === 'win32'
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        ...buildCorsHeaders(origin),
+      })
+
+      const send = (event: string, data: string) => {
+        res.write(`event: ${event}\ndata: ${JSON.stringify({ message: data, timestamp: new Date().toISOString() })}\n\n`)
+      }
+
+      function runDeployCommand(cmd: string, args: string[], cwd: string): Promise<{ code: number; output: string }> {
+        return new Promise((resolve) => {
+          let output = ''
+          const proc = spawnDeploy(cmd, args, { cwd, shell: true })
+          proc.stdout?.on('data', (chunk: Buffer) => {
+            const text = chunk.toString()
+            output += text
+            send('output', text.trim())
+          })
+          proc.stderr?.on('data', (chunk: Buffer) => {
+            const text = chunk.toString()
+            output += text
+            send('output', text.trim())
+          })
+          proc.on('close', (code) => resolve({ code: code ?? 1, output }))
+        })
+      }
+
+      const steps: Array<{ message: string; cmd: string; args: string[]; cwd: string; optional?: boolean }> = [
+        { message: 'Pulling latest changes...', cmd: 'git', args: ['pull', 'origin', 'main'], cwd: projectRoot },
+        { message: 'Installing dependencies...', cmd: 'npm', args: ['install', '--silent'], cwd: projectRoot },
+        { message: 'Installing web dependencies...', cmd: 'npm', args: ['install', '--silent'], cwd: webDir },
+        { message: 'Building web app...', cmd: 'npm', args: ['run', 'build'], cwd: webDir },
+      ]
+
+      // systemctl restart is Linux-only
+      if (!isWindows) {
+        steps.push({
+          message: 'Restarting service...',
+          cmd: 'systemctl',
+          args: ['--user', 'restart', 'openclaw-ensemble'],
+          cwd: projectRoot,
+          optional: true,
+        })
+      } else {
+        steps.push({
+          message: 'Skipping service restart (Windows)...',
+          cmd: 'echo',
+          args: ['Service restart skipped on Windows'],
+          cwd: projectRoot,
+          optional: true,
+        })
+      }
+
+      // Health check
+      steps.push({
+        message: 'Running health check...',
+        cmd: 'curl',
+        args: ['-s', `http://localhost:${PORT}/api/v1/health`],
+        cwd: projectRoot,
+        optional: true,
+      })
+
+      for (const step of steps) {
+        send('step', step.message)
+        const result = await runDeployCommand(step.cmd, step.args, step.cwd)
+        if (result.code !== 0 && !step.optional) {
+          send('error', `Step failed: ${step.message}\n${result.output}`)
+          res.end()
+          return
+        }
+        if (result.code !== 0 && step.optional) {
+          send('warning', `Step had issues but continuing: ${step.message}`)
+        }
+      }
+
+      send('done', 'Deploy complete!')
+      res.end()
+      return
+    }
+
     // Serve static SPA files in production
     const webDistDir = nodePath.join(__dirname, 'web', 'dist')
     if (fs.existsSync(nodePath.join(webDistDir, 'index.html'))) {

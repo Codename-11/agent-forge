@@ -7,6 +7,7 @@ import { TeamListView } from './components/TeamListView'
 import { HistoryView } from './components/HistoryView'
 import { Monitor } from './components/Monitor'
 import { SettingsPage } from './components/SettingsPage'
+import { DeployPage } from './components/DeployPage'
 import { LandingPage } from './components/LandingPage'
 import { SpectatorView } from './components/SpectatorView'
 import { ReplayView } from './components/ReplayView'
@@ -107,6 +108,15 @@ export function App() {
     return (
       <DashboardLayout serverOnline={serverOnline} connecting={connecting}>
         <SettingsPage onBack={() => navigate('/app')} />
+      </DashboardLayout>
+    )
+  }
+
+  // Deploy
+  if (pathname === '/app/deploy') {
+    return (
+      <DashboardLayout serverOnline={serverOnline} connecting={connecting}>
+        <DeployPage onBack={() => navigate('/app')} />
       </DashboardLayout>
     )
   }

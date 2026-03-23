@@ -16,6 +16,7 @@ const navItems = [
   { path: '/app/history', label: 'History', emoji: '📼' },
   { path: '/lobby', label: 'Lobby', emoji: '🌐' },
   { path: '/app/settings', label: 'Settings', emoji: '⚙️' },
+  { path: '/app/deploy', label: 'Deploy', emoji: '🚀' },
 ]
 
 export function DashboardLayout({ children, serverOnline, connecting }: DashboardLayoutProps) {
