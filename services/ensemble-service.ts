@@ -1251,15 +1251,24 @@ async function generateAutoSummary(teamId: string): Promise<void> {
   fs.writeFileSync(promptFile, summaryPrompt)
 
   try {
-    const { execFile } = await import('child_process')
-    const { promisify } = await import('util')
-    const execFileAsync = promisify(execFile)
+    const { spawn: spawnChild } = await import('child_process')
     const isWindows = os.platform() === 'win32'
 
-    const { stdout } = await execFileAsync('claude', [
-      '--print', '--output-format', 'text', '-p',
-      `Read ${promptFile} and return the JSON summary. Return ONLY valid JSON.`,
-    ], { timeout: 120000, maxBuffer: 1024 * 1024, shell: isWindows })
+    // Pipe prompt via stdin (avoids CLI arg length limits)
+    const stdout: string = await new Promise((resolve, reject) => {
+      let out = ''
+      const proc = spawnChild('claude', ['--print', '--output-format', 'text'], {
+        cwd: process.cwd(),
+        stdio: ['pipe', 'pipe', 'pipe'],
+        shell: isWindows,
+        timeout: 120000,
+      })
+      proc.stdout?.on('data', (chunk: Buffer) => { out += chunk.toString() })
+      proc.on('close', () => resolve(out))
+      proc.on('error', reject)
+      proc.stdin?.write(summaryPrompt)
+      proc.stdin?.end()
+    })
 
     if (stdout?.trim()) {
       const jsonMatch = stdout.match(/\{[\s\S]*"summary"[\s\S]*\}/)

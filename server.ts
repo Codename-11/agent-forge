@@ -443,20 +443,51 @@ ${formattedMessages}`
         let output: string
         const isWindows = os.platform() === 'win32'
 
-        if (agentProgram.toLowerCase().includes('claude')) {
-          // Write prompt to temp file, pipe via stdin to avoid command-line length limits
-          const { stdout } = await execFileAsync('claude', [
-            '--print', '--output-format', 'text', '-p', `Summarize this collaboration. Read the file ${promptFile} for details. Return JSON with task, decisions, accomplished, issues, filesChanged, summary fields.`,
-          ], { timeout: 120000, maxBuffer: 1024 * 1024, shell: isWindows })
-          output = stdout
-        } else if (agentProgram.toLowerCase().includes('codex')) {
-          const { stdout } = await execFileAsync('codex', [
-            'exec', `Read ${promptFile} and summarize the collaboration in JSON format with fields: task, decisions, accomplished, issues, filesChanged, summary.`,
-          ], { timeout: 120000, maxBuffer: 1024 * 1024, shell: isWindows })
-          output = stdout
-        } else {
-          return json(res, { error: `Agent "${agentProgram}" does not support non-interactive summarization. Use claude or codex.` }, 400, origin)
-        }
+        // Pipe the prompt via stdin to avoid CLI arg length limits
+        // (SubFrame pattern: write to file, pipe to CLI, capture stdout)
+        const { spawn: spawnChild } = await import('child_process')
+
+        output = await new Promise<string>((resolve, reject) => {
+          let stdout = ''
+          let stderr = ''
+          let cmd: string
+          let args: string[]
+
+          if (agentProgram.toLowerCase().includes('claude')) {
+            cmd = 'claude'
+            args = ['--print', '--output-format', 'text']
+          } else if (agentProgram.toLowerCase().includes('codex')) {
+            cmd = 'codex'
+            args = ['exec']
+          } else {
+            reject(new Error(`Agent "${agentProgram}" does not support non-interactive summarization.`))
+            return
+          }
+
+          const proc = spawnChild(cmd, args, {
+            cwd: process.cwd(),
+            stdio: ['pipe', 'pipe', 'pipe'],
+            shell: isWindows,
+            timeout: 120000,
+          })
+
+          proc.stdout?.on('data', (chunk: Buffer) => { stdout += chunk.toString() })
+          proc.stderr?.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
+
+          proc.on('close', (code) => {
+            if (code === 0 || stdout.trim()) {
+              resolve(stdout)
+            } else {
+              reject(new Error(`Agent exited with code ${code}: ${stderr.slice(0, 500)}`))
+            }
+          })
+
+          proc.on('error', reject)
+
+          // Write prompt to stdin and close
+          proc.stdin?.write(summaryPrompt)
+          proc.stdin?.end()
+        })
 
         // Clean up temp file
         try { fs.unlinkSync(promptFile) } catch { /* ok */ }
