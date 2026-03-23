@@ -18,6 +18,19 @@ const FALLBACK_AGENTS: AgentInfo[] = [
   { id: 'opencode', name: 'opencode', color: 'cyan', icon: '▣' },
 ]
 
+/** Generate a readable session name from the task description */
+function generateSessionName(task: string): string {
+  // Extract key words from the task, slugify, take first 4 words
+  const slug = task
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !['the', 'and', 'for', 'this', 'that', 'with'].includes(w))
+    .slice(0, 4)
+    .join('-')
+  return slug || `session-${Date.now()}`
+}
+
 const DEFAULT_MAX_AGENTS = 4
 const DEFAULT_MIN_AGENTS = 2
 
@@ -27,6 +40,7 @@ interface LaunchFormProps {
 }
 
 export function LaunchForm({ onLaunch, onCancel }: LaunchFormProps) {
+  const [sessionName, setSessionName] = useState('')
   const [task, setTask] = useState('')
   const [agents, setAgents] = useState<string[]>(['codex', 'claude'])
   const [workingDirectory, setWorkingDirectory] = useState('')
@@ -126,7 +140,7 @@ export function LaunchForm({ onLaunch, onCancel }: LaunchFormProps) {
     if (parsedStall > 0) config.stallAfterMs = Math.round(parsedStall * 60000)
 
     const body = {
-      name: `collab-${Date.now()}`,
+      name: sessionName.trim() || generateSessionName(task.trim()),
       description: task.trim(),
       agents: agents.map((program, i) => ({
         program,
@@ -176,7 +190,19 @@ export function LaunchForm({ onLaunch, onCancel }: LaunchFormProps) {
         onClick={e => e.stopPropagation()}
         onSubmit={e => void handleSubmit(e)}
       >
-        <h2 className="text-lg font-semibold tracking-tight">New Collaboration</h2>
+        <h2 className="text-lg font-semibold tracking-tight">New Session</h2>
+
+        {/* Session name */}
+        <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
+          Name <span className="font-normal text-muted-foreground/50">(optional — auto-generated if blank)</span>
+          <input
+            type="text"
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            placeholder="e.g. auth-review, api-refactor..."
+            value={sessionName}
+            onChange={e => setSessionName(e.target.value)}
+          />
+        </label>
 
         {/* Task description */}
         <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">

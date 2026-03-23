@@ -223,7 +223,7 @@ export function App() {
             onClick={() => setShowLaunchForm(true)}
           >
             <Plus className="size-3.5" />
-            New Team
+            New Session
           </button>
         </div>
       </header>
@@ -252,14 +252,14 @@ export function App() {
       ) : teams.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 text-muted-foreground">
           <Users className="size-10 opacity-30" />
-          <p className="text-sm font-medium">No teams yet</p>
+          <p className="text-sm font-medium">No sessions yet</p>
           <div className="flex flex-col items-center gap-3 max-w-sm">
             <button
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               onClick={() => setShowLaunchForm(true)}
             >
               <Plus className="size-4" />
-              Create your first team
+              Create your first session
             </button>
             <p className="text-center text-xs opacity-60">or from the command line:</p>
             <div className="w-full rounded-lg border border-border bg-card p-3 text-left">
@@ -278,19 +278,19 @@ export function App() {
         <div className="flex flex-1 overflow-hidden">
         {/* ── Team list (left) ───────────────────────────────── */}
         <div className="flex flex-1 flex-col overflow-y-auto p-4 lg:p-6">
-          {/* ── Active Teams Section ─────────────────────────── */}
+          {/* ── Active Sessions Section ─────────────────────────── */}
           <section>
             <div className="flex items-center gap-2 mb-3">
               <Activity className="size-3.5 text-[var(--status-active)]" />
               <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Active Teams
+                Active Sessions
               </h2>
               <span className="text-xs text-muted-foreground">({activeCount})</span>
             </div>
 
             {activeTeams.length === 0 ? (
               <div className="flex items-center justify-between rounded-lg border border-dashed border-border px-4 py-4">
-                <p className="text-sm text-muted-foreground">No active teams</p>
+                <p className="text-sm text-muted-foreground">No active sessions</p>
                 <button
                   className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                   onClick={() => setShowLaunchForm(true)}
@@ -394,13 +394,13 @@ export function App() {
             )}
           </section>
 
-          {/* ── Past Teams Separator + Section ───────────────── */}
+          {/* ── Past Sessions Separator + Section ───────────────── */}
           {pastTeams.length > 0 && (
             <section className="mt-6">
               <div className="flex items-center gap-3 mb-3">
                 <div className="h-px flex-1 bg-border" />
                 <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-                  Past Teams
+                  Past Sessions
                 </span>
                 <div className="h-px flex-1 bg-border" />
               </div>
