@@ -10,6 +10,7 @@ import type { LobbyTeam } from '../types'
 interface LandingPageProps {
   onCreateTeam: () => void
   onWatchTeam: (teamId: string) => void
+  onDashboard?: () => void
 }
 
 function timeAgo(isoString: string): string {
@@ -38,7 +39,7 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-export function LandingPage({ onCreateTeam, onWatchTeam }: LandingPageProps) {
+export function LandingPage({ onCreateTeam, onWatchTeam, onDashboard }: LandingPageProps) {
   const [lobbyTeams, setLobbyTeams] = useState<LobbyTeam[]>([])
   const [lobbyLoading, setLobbyLoading] = useState(true)
   const [lobbyError, setLobbyError] = useState<string | null>(null)
@@ -104,9 +105,9 @@ requests.post(team["send_url"],
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-3xl opacity-60">◈</span>
+            <span className="text-3xl">⚒️</span>
             <h1 className="text-4xl font-bold tracking-tight text-foreground">
-              ensemble
+              Agent-Forge
             </h1>
           </div>
 
@@ -126,6 +127,12 @@ requests.post(team["send_url"],
             >
               <Plus className="size-4" />
               Create a Team
+            </button>
+            <button
+              onClick={onDashboard}
+              className="inline-flex items-center gap-2 rounded-lg bg-zinc-800 border border-border px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-zinc-700"
+            >
+              Dashboard →
             </button>
             <a
               href="#lobby"
