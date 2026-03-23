@@ -1,4 +1,4 @@
-# Setup and Deployment Guide
+# Agent-Forge — Setup and Deployment Guide
 
 ## Quick Start
 
@@ -155,7 +155,7 @@ cd web && npm install && npm run build && cd ..
 # Create a systemd service
 sudo tee /etc/systemd/system/ensemble.service << EOF
 [Unit]
-Description=Ensemble Multi-Agent Server
+Description=Agent-Forge Multi-Agent Server
 After=network.target
 
 [Service]

@@ -1299,7 +1299,7 @@ server.on('error', (err: NodeJS.ErrnoException) => {
 ;(server as unknown as { _ensembleStartTime: number })._ensembleStartTime = Date.now()
 
 server.listen(PORT, HOST, () => {
-  console.log(styledHeader('ensemble'))
+  console.log(styledHeader('agent-forge'))
   styledLog('\u2713', `Server running on http://${HOST}:${PORT}`)
   console.log(styledStatus('Health', `${color.dim}http://localhost:${PORT}/api/v1/health${color.reset}`))
   console.log()

@@ -1,4 +1,4 @@
-# Architecture
+# Agent-Forge — Architecture
 
 ## High-Level Overview
 
@@ -18,7 +18,7 @@
                      +--------+--------+
                               |
                      +--------v--------+
-                     | Ensemble Service|
+                     | Agent-Forge Service|
                      | (orchestrator)  |
                      +--+---------+--+-+
                         |         |  |
@@ -103,7 +103,7 @@ Runs as a child process of each agent. Configured via environment variables:
 
 Implements the MCP JSON-RPC protocol (version `2024-11-05`) over stdin/stdout.
 
-### Ensemble Service (`services/ensemble-service.ts`)
+### Agent-Forge Service (`services/ensemble-service.ts`)
 
 The orchestration brain. Manages the full team lifecycle:
 
@@ -142,7 +142,7 @@ Key operations: `createSession`, `killSession`, `sendKeys`, `pasteFromFile`, `ca
 
 The correct runtime is auto-selected based on `os.platform()`.
 
-### Ensemble Registry (`lib/ensemble-registry.ts`)
+### Agent-Forge Registry (`lib/ensemble-registry.ts`)
 
 File-based persistence layer:
 
@@ -429,7 +429,7 @@ The registry uses directory-based locking (`teams.json.lock/` created via `mkdir
 
 ## Multi-Host Architecture
 
-Ensemble supports distributing agents across multiple machines:
+Agent-Forge supports distributing agents across multiple machines:
 
 1. **hosts.json** defines available hosts with URLs and IDs
 2. When creating a team, each agent can specify a `hostId`

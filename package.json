@@ -1,7 +1,7 @@
 {
-  "name": "ensemble",
+  "name": "agent-forge",
   "version": "1.0.0",
-  "description": "Standalone multi-agent collaboration engine — Codex + Claude working together",
+  "description": "Agent-Forge — Multi-agent collaboration engine. Deploy AI agent teams, watch them work in real-time.",
   "type": "module",
   "bin": {
     "ensemble": "./cli/ensemble.ts"

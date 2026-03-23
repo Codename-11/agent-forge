@@ -783,7 +783,7 @@ function McpSection({ config, showToast }: { config: ServerConfig; showToast: (t
 
         {/* Info text */}
         <p className="text-[11px] text-muted-foreground">
-          The ensemble MCP server allows external Claude Code or Codex sessions to join a team.
+          The Agent-Forge MCP server allows external Claude Code or Codex sessions to join a team.
           Replace <code className="rounded bg-background px-1 text-[10px]">{'<team-id>'}</code> and{' '}
           <code className="rounded bg-background px-1 text-[10px]">{'<name>'}</code> with actual values.
         </p>

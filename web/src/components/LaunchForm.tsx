@@ -193,7 +193,7 @@ export function LaunchForm({ onLaunch, onCancel }: LaunchFormProps) {
         onClick={e => e.stopPropagation()}
         onSubmit={e => void handleSubmit(e)}
       >
-        <h2 className="text-lg font-semibold tracking-tight">New Session</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Deploy a Team</h2>
 
         {/* Session name */}
         <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
@@ -544,7 +544,7 @@ export function LaunchForm({ onLaunch, onCancel }: LaunchFormProps) {
             ) : (
               <Rocket className="size-3.5" />
             )}
-            {submitting ? 'Launching...' : 'Launch Session'}
+            {submitting ? 'Deploying...' : 'Deploy'}
           </button>
         </div>
       </form>

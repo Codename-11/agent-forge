@@ -1,4 +1,4 @@
-# API Reference
+# Agent-Forge — API Reference
 
 Base URL: `http://127.0.0.1:23000` (configurable via `ENSEMBLE_PORT` and `ENSEMBLE_HOST`)
 

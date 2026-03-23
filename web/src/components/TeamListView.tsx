@@ -157,7 +157,7 @@ export function TeamListView({ onServerStatus }: TeamListViewProps) {
             onClick={() => setShowLaunchForm(true)}
           >
             <Plus className="size-3.5" />
-            New Team
+            Deploy a Team
           </button>
         </div>
 

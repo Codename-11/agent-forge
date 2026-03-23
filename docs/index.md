@@ -3,11 +3,11 @@ title: Home
 nav_order: 1
 ---
 
-# Ensemble
+# Agent-Forge
 
 **Multi-agent collaboration engine** — AI agents that work as one.
 
-Ensemble orchestrates AI agents into collaborative teams. Out of the box it pairs **Claude Code + Codex** — they communicate, share findings, and solve problems together in real time.
+Agent-Forge orchestrates AI agents into collaborative teams. Out of the box it pairs **Claude Code + Codex** — they communicate, share findings, and solve problems together in real time.
 
 > **Status:** Experimental developer tool. Not a production framework (yet).
 >
@@ -17,7 +17,7 @@ Ensemble orchestrates AI agents into collaborative teams. Out of the box it pair
 
 ## What does it do?
 
-You give a task. Ensemble spawns a team of AI agents, each in their own tmux session, that **talk to each other** to solve it. You watch the conversation unfold in real time via a TUI monitor or inline feed.
+You give a task. Agent-Forge spawns a team of AI agents, each in their own tmux session, that **talk to each other** to solve it. You watch the conversation unfold in real time via a TUI monitor or inline feed.
 
 ```
 You: "Review the auth module for security issues"
@@ -30,7 +30,7 @@ You: "Review the auth module for security issues"
 
 ## Use with Claude Code
 
-Ensemble ships with a `/collab` skill for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Just type:
+Agent-Forge ships with a `/collab` skill for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Just type:
 
 ```
 /collab "Review the auth module for security issues"

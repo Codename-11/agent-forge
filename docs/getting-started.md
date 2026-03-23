@@ -3,7 +3,7 @@ title: Getting Started
 nav_order: 2
 ---
 
-# Getting Started
+# Agent-Forge — Getting Started
 
 ## Prerequisites
 
@@ -16,7 +16,7 @@ nav_order: 2
 | **macOS or Linux** | tmux and shell scripts require a Unix environment |
 | **Claude Code + Codex CLIs** | The default agent pair ([Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex](https://github.com/openai/codex)) |
 
-> **Platform support:** Ensemble runs on macOS and Linux only. Windows (including WSL) is not tested or supported.
+> **Platform support:** Agent-Forge runs on macOS and Linux only. Windows (including WSL) is not tested or supported.
 
 ### Install tmux
 
@@ -43,7 +43,7 @@ npm install -g @anthropic-ai/claude-code
 npm install -g @openai/codex
 ```
 
-> **Want to use other agents?** Ensemble is agent-agnostic — you can add Gemini CLI (experimental), Aider, or any CLI tool via `agents.json`. See [Configuration → Supported Agents](configuration#supported-agents) for details.
+> **Want to use other agents?** Agent-Forge is agent-agnostic — you can add Gemini CLI (experimental), Aider, or any CLI tool via `agents.json`. See [Configuration → Supported Agents](configuration#supported-agents) for details.
 
 Each agent CLI manages its own API keys. Make sure they're configured before running ensemble:
 
@@ -69,8 +69,8 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/michelhelsdingen/ensemble.git
-cd ensemble
+git clone https://github.com/Codename-11/agent-forge.git
+cd agent-forge
 npm install
 ```
 
@@ -82,7 +82,7 @@ Open a terminal and keep it running:
 npm run dev
 ```
 
-You should see: `[Ensemble] Server running on http://127.0.0.1:23000`
+You should see: `[Agent-Forge] Server running on http://127.0.0.1:23000`
 
 ### 3. Verify (in a second terminal)
 

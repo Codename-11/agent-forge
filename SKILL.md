@@ -1,6 +1,6 @@
-# Ensemble — Agent Knowledge File
+# Agent-Forge — Agent Knowledge File
 
-## What is Ensemble?
+## What is Agent-Forge?
 Multi-agent collaboration engine. Orchestrates AI agents (Claude, Codex, Gemini) into teams that communicate via MCP tools and HTTP API.
 
 ## Quick Reference

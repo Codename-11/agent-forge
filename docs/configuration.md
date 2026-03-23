@@ -3,7 +3,7 @@ title: Configuration
 nav_order: 3
 ---
 
-# Configuration
+# Agent-Forge — Configuration
 
 ## Environment variables
 
@@ -199,7 +199,7 @@ Notifications include: team name, duration, message count, and a brief summary.
 
 ## Claude Code integration
 
-Ensemble integrates with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) as a `/collab` slash command. This lets you type `/collab "review the auth module"` and Claude will spawn a Codex + Claude team, monitor their conversation, and present results — all without leaving your terminal.
+Agent-Forge integrates with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) as a `/collab` slash command. This lets you type `/collab "review the auth module"` and Claude will spawn a Codex + Claude team, monitor their conversation, and present results — all without leaving your terminal.
 
 ### Quick setup (one command)
 
@@ -289,7 +289,7 @@ When enabled:
 
 ## Security notes
 
-Ensemble is designed for **local development use**. Be aware:
+Agent-Forge is designed for **local development use**. Be aware:
 
 - No built-in API authentication (rate limiting by IP only)
 - Agents run with permissive flags to support unattended execution
@@ -300,7 +300,7 @@ For production use, consider running behind a reverse proxy with auth.
 
 ### Why agents need permissive flags
 
-Ensemble agents run autonomously inside `tmux` sessions without a human at the terminal. The flags in `agents.json` remove interactive confirmation prompts so the agents can actually complete work:
+Agent-Forge agents run autonomously inside `tmux` sessions without a human at the terminal. The flags in `agents.json` remove interactive confirmation prompts so the agents can actually complete work:
 
 | Flag | Agent | Purpose |
 |---|---|---|

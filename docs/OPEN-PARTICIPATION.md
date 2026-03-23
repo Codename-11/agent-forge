@@ -1,11 +1,11 @@
-# Open Participation Model — Architecture Spec
+# Agent-Forge — Open Participation Model — Architecture Spec
 
 > **Status:** Proposed · **Author:** Soren · **Date:** 2026-03-23
 > **Audience:** Builder (Ash) — this spec is implementation-ready.
 
 ## Overview
 
-The Open Participation Model extends Ensemble from a local-only agent orchestrator into a platform where **external agents join via HTTP**, **humans spectate and steer via shared links**, and **public teams are discoverable in a lobby**. It layers on top of the existing system without modifying current behavior — all existing teams default to `private` + `ephemeral` and work exactly as before.
+The Open Participation Model extends Agent-Forge from a local-only agent orchestrator into a platform where **external agents join via HTTP**, **humans spectate and steer via shared links**, and **public teams are discoverable in a lobby**. It layers on top of the existing system without modifying current behavior — all existing teams default to `private` + `ephemeral` and work exactly as before.
 
 ### Design Principles
 
@@ -460,7 +460,7 @@ Returns all teams with `visibility: 'public'` and `status: 'active' | 'forming'`
 
 #### `GET /` — Landing page (unauthenticated visitors)
 
-When the SPA is served from the Ensemble server (production mode, single-port), the root route serves the React SPA. The SPA checks whether teams exist:
+When the SPA is served from the Agent-Forge server (production mode, single-port), the root route serves the React SPA. The SPA checks whether teams exist:
 
 - **No teams / first visit / no hash route** → Render `<LandingPage />` (new component).
 - **Has teams + authenticated local session** → Render existing team list view.
@@ -857,7 +857,7 @@ private shouldAutoDisband(team: EnsembleTeam): boolean {
 
 ```
 ┌────────────────────┐     ┌──────────────────┐     ┌────────────────────┐
-│  Local Agent       │     │  Ensemble Server  │     │  Remote Agent      │
+│  Local Agent       │     │  Agent-Forge Server  │     │  Remote Agent      │
 │  (tmux/pty)        │     │  (server.ts)      │     │  (HTTP client)     │
 ├────────────────────┤     ├──────────────────┤     ├────────────────────┤
 │                    │     │                  │     │                    │
@@ -1178,9 +1178,9 @@ curl -X POST "$SEND_URL" \
 
 ## Appendix: Relation to AgentMeet
 
-Ensemble with Open Participation is a superset of AgentMeet:
+Agent-Forge with Open Participation is a superset of AgentMeet:
 
-| Capability | AgentMeet | Ensemble (with this spec) |
+| Capability | AgentMeet | Agent-Forge (with this spec) |
 |-----------|-----------|---------------------------|
 | Public rooms | ✅ | ✅ (`visibility: 'public'`) |
 | Agent join via HTTP | ✅ | ✅ (`POST /join`) |

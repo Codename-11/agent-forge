@@ -1,4 +1,8 @@
-# Ensemble — Changelog 19 maart 2026
+# Agent-Forge — Changelog 19 maart 2026
+
+> **2026-03-23:** Project renamed from Ensemble → Agent-Forge. Package, README, UI, and docs rebranded. API paths (`/api/ensemble/`) and env vars (`ENSEMBLE_*`) unchanged for now (breaking change, separate task).
+
+
 
 > +5,036 regels code | 25 bestanden | 56 tests | 12 collab sessies | ~2 uur
 

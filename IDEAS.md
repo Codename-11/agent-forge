@@ -1,4 +1,4 @@
-# Ensemble — Ideas & Enhancements
+# Agent-Forge — Ideas & Enhancements
 
 ## Immediate Impact (Low Effort, High Wow)
 

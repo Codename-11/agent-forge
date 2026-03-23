@@ -1,6 +1,6 @@
-# Contributing to Ensemble
+# Contributing to Agent-Forge
 
-Thanks for your interest in contributing! Ensemble is an experimental multi-agent collaboration engine, and we welcome contributions of all kinds.
+Thanks for your interest in contributing! Agent-Forge is an experimental multi-agent collaboration engine, and we welcome contributions of all kinds.
 
 ## Getting Started
 

@@ -3,7 +3,7 @@ title: CLI Reference
 nav_order: 5
 ---
 
-# CLI Reference
+# Agent-Forge — CLI Reference
 
 ## ensemble CLI
 
