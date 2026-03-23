@@ -136,7 +136,8 @@ export function TeamSummary({ team, messages, onNavigateToTeam }: TeamSummaryPro
   )
 
   /* ── AI summary state ────────────────────────────────────────── */
-  const [aiSummary, setAiSummary] = useState<string | undefined>(team.result?.aiSummary)
+  // Read from team data (persisted by API) — survives tab switches
+  const aiSummary = team.result?.aiSummary
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [selectedAgent, setSelectedAgent] = useState(SUMMARY_AGENTS[0].id)
@@ -161,7 +162,7 @@ export function TeamSummary({ team, messages, onNavigateToTeam }: TeamSummaryPro
       if (!res.ok) {
         throw new Error(data.error || `Failed: ${res.status}`)
       }
-      setAiSummary(data.aiSummary)
+      // aiSummary is now read from team.result (updated by polling)
       setGeneratedBy(data.agent)
       setGeneratedAt(new Date())
     } catch (err) {

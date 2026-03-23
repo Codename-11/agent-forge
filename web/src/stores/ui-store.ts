@@ -13,9 +13,14 @@ interface UIState {
   /** Theme preference (dark is always default for now) */
   theme: 'dark' | 'light'
   setTheme: (theme: UIState['theme']) => void
+
+  /** Monitor tab per team (persists across navigation) */
+  monitorTab: Record<string, 'summary' | 'messages' | 'plan'>
+  setMonitorTab: (teamId: string, tab: 'summary' | 'messages' | 'plan') => void
+  getMonitorTab: (teamId: string, defaultTab: 'summary' | 'messages' | 'plan') => 'summary' | 'messages' | 'plan'
 }
 
-export const useUIStore = create<UIState>((set) => ({
+export const useUIStore = create<UIState>((set, get) => ({
   activeView: 'teams',
   setActiveView: (view) => set({ activeView: view }),
 
@@ -25,4 +30,8 @@ export const useUIStore = create<UIState>((set) => ({
 
   theme: 'dark',
   setTheme: (theme) => set({ theme }),
+
+  monitorTab: {},
+  setMonitorTab: (teamId, tab) => set((s) => ({ monitorTab: { ...s.monitorTab, [teamId]: tab } })),
+  getMonitorTab: (teamId, defaultTab) => get().monitorTab[teamId] ?? defaultTab,
 }))

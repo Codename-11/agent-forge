@@ -84,7 +84,10 @@ const FALLBACK_AGENT_PROGRAMS = ['codex', 'claude', 'gemini', 'aider', 'opencode
 export function Monitor({ team, messages, connected, error, onSend, onDisband, onBack, onNavigateToTeam }: MonitorProps) {
   const isTerminal = team.status === 'completed' || team.status === 'disbanded' || team.status === 'failed'
   const isActive = team.status === 'active' || team.status === 'forming'
-  const [viewMode, setViewMode] = useState<'summary' | 'messages' | 'plan'>(isTerminal ? 'summary' : 'messages')
+  const defaultTab = isTerminal ? 'summary' : 'messages'
+  const viewMode = useUIStore((s) => s.getMonitorTab(team.id, defaultTab))
+  const setMonitorTab = useUIStore((s) => s.setMonitorTab)
+  const setViewMode = (tab: 'summary' | 'messages' | 'plan') => setMonitorTab(team.id, tab)
   const duration = useMemo(() => formatDuration(team.createdAt, team.completedAt), [team.createdAt, team.completedAt])
 
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed)
