@@ -2,167 +2,158 @@
 
 **Multi-agent collaboration engine** — AI agents that work as one.
 
-Ensemble orchestrates AI agents into collaborative teams. Out of the box it pairs **Claude Code + Codex** — they communicate, share findings, and solve problems together in real time. Built on tmux-based session management for transparent, observable agent interactions.
+Ensemble orchestrates AI agents into collaborative teams. Pair **Claude Code + Codex** (or any mix of agents) — they communicate, share findings, and solve problems together in real time. Monitor everything through a React web UI or terminal TUI.
 
-> **Status:** Experimental developer tool. macOS and Linux only.
+> **Status:** Experimental developer tool. Works on **Windows, macOS, and Linux**.
 
 ## Features
 
-- **Team orchestration** — Spawn multi-agent teams with a single command
-- **Real-time messaging** — Agents communicate via a structured message bus
-- **TUI monitor** — Watch agent collaboration live from your terminal
+- **Team orchestration** — Spawn multi-agent teams with a single command or from the web UI
+- **MCP communication** — Agents talk via native MCP tools (team_say/team_read) — ~100ms latency
+- **React web monitor** — Dark-themed SPA with live message feed, agent terminal viewer, team management
+- **Terminal TUI** — Full-featured terminal monitor with input pane, scrolling, agent steering
+- **Hot-join agents** — Add agents to running teams mid-collaboration
+- **AI summaries** — Generate collaboration summaries using any backend agent
 - **Auto-disband** — Intelligent completion detection ends teams when work is done
-- **Multi-host support** — Run agents across local and remote machines
-- **CLI & HTTP API** — Full control via command line or REST endpoints
-
-**[Full documentation →](https://michelhelsdingen.github.io/ensemble/)**
+- **Session viewer** — Watch and inject commands into agent terminal sessions from the browser
+- **Clone & restart** — Restart past teams fresh or continue with message context
+- **Docker & production** — Single-port deployment serving API + SPA
 
 ## Quick Start
 
-### Prerequisites
-
-- Node.js 18+, Python 3.6+, [tmux](https://github.com/tmux/tmux), curl
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Codex](https://github.com/openai/codex) CLIs installed
-
-### Install & Run
-
 ```bash
-git clone https://github.com/michelhelsdingen/ensemble.git
+git clone https://github.com/Codename-11/ensemble.git
 cd ensemble
 npm install
-
-# Start the server (keep this running)
 npm run dev
 ```
 
-### Verify (in a second terminal)
-
-```bash
-curl http://localhost:23000/api/v1/health
-# → {"status":"healthy","version":"1.0.0"}
-```
+This starts the API server (port 23000) and the React SPA (port 5173), then opens your browser.
 
 ### Create your first team
 
-```bash
-# Via CLI
-npx ensemble status
+**From the web UI:** Click "+ New Team", enter a task, pick agents, hit Launch.
 
-# Via API — create a team of two agents
+**From the CLI:**
+```bash
+npx tsx cli/ensemble.ts run "Review the auth module" --agents codex,claude
+```
+
+**From the API:**
+```bash
 curl -X POST http://localhost:23000/api/ensemble/teams \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "review-team",
-    "description": "Review the authentication module",
-    "agents": [
-      { "program": "claude", "role": "lead" },
-      { "program": "codex", "role": "worker" }
-    ],
-    "workingDirectory": "'$(pwd)'"
-  }'
-
-# Watch the collaboration live
-npx ensemble monitor --latest
-
-# Steer the team
-npx ensemble steer <team-id> "focus on the auth module"
+  -d '{"name":"review-team","description":"Review the auth module","agents":[{"program":"codex","role":"lead"},{"program":"claude","role":"worker"}]}'
 ```
 
-Or use the all-in-one collab script:
+## Web Monitor
 
-```bash
-./scripts/collab-launch.sh "$(pwd)" "Review the authentication module"
+The React SPA at `http://localhost:5173` provides:
+
+- **Team list** — Active teams on top with green indicators, past teams below
+- **Live message feed** — Grouped messages, day separators, auto-scroll, code block rendering
+- **Agent terminal viewer** — Click any agent in the sidebar to see their live terminal (xterm.js)
+- **Team steering** — Send messages to the whole team or specific agents
+- **Launch form** — Create teams with agent picker, lead selection, directory picker
+- **Summary view** — AI-generated summaries, message stats, disband reason tracking
+- **Clone/restart** — Restart past teams fresh or seed with previous context
+
+## Architecture
+
 ```
+Browser (React SPA)  <--SSE-->  Server (:23000)  <-->  Agent Sessions
+     |                              |                    |
+  localhost:5173              HTTP + SSE              tmux (Unix)
+                                    |                node-pty (Windows)
+Terminal (TUI)  -----HTTP poll------+
+                                    |
+                              MCP Server (stdio)
+                                    |
+                              Agent <-> API (direct)
+```
+
+### Communication Modes
+
+| Mode | Latency | How |
+|------|---------|-----|
+| **MCP** (default) | ~100ms | Agent calls `team_say` tool via MCP server — direct HTTP to API |
+| **Shell** (fallback) | ~3-5s | Agent runs `team-say.sh` — file write → bridge poll → API |
+
+Set `ENSEMBLE_COMM_MODE=shell` to use the shell fallback. MCP is default for Claude and Codex.
+
+## Supported Agents
+
+| Agent | MCP Support | Status |
+|-------|-------------|--------|
+| **Claude Code** | Yes (`--mcp-config`) | Fully tested |
+| **Codex** | Yes (`--mcp-config`) | Fully tested |
+| **Gemini CLI** | No (shell fallback) | Experimental |
+| **Aider** | No (shell fallback) | Untested |
+| **Any CLI tool** | Via `agents.json` | Custom |
+
+## Prerequisites
+
+- **Node.js 22+**
+- **Windows:** node-pty (installed automatically as optional dep)
+- **macOS/Linux:** tmux (`brew install tmux` / `apt install tmux`)
+- At least one agent CLI: [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex](https://github.com/openai/codex)
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENSEMBLE_PORT` | `23000` | Server port |
+| `ENSEMBLE_HOST` | `127.0.0.1` | Server bind address |
+| `ENSEMBLE_DATA_DIR` | `~/.ensemble` | Persistent data directory |
+| `ENSEMBLE_RUNTIME_DIR` | `<os.tmpdir()>/ensemble` | Temp runtime files |
+| `ENSEMBLE_COMM_MODE` | `mcp` | Communication mode: `mcp` or `shell` |
+| `ENSEMBLE_CORS_ORIGIN` | localhost only | Allowed CORS origins |
 
 ## Claude Code: `/collab` command
-
-Ensemble ships with a skill for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Once installed, just type:
 
 ```
 /collab "Review the auth module for security issues"
 ```
 
-Claude spawns a Codex + Claude team, shows their conversation live in your terminal, and presents a summary when done. One-command setup:
-
+Setup:
 ```bash
-./scripts/setup-claude-code.sh
+npm run setup
 ```
 
-This installs the skill, configures permissions, and verifies prerequisites. See the [full setup guide](https://michelhelsdingen.github.io/ensemble/configuration#claude-code-integration) for details.
+## Deployment
 
-## Supported Agents
-
-The default team is **Claude Code (lead) + Codex (worker)**. This is the tested, production-ready combination.
-
-| Agent | Status | How to use |
-|---|---|---|
-| **Claude Code + Codex** | Fully tested | Default — just run `/collab` or `collab-launch.sh` |
-| **Gemini CLI** | Experimental | Add explicitly (see below) |
-| **Aider** | Untested | Add explicitly (see below) |
-| **Any CLI tool** | Via `agents.json` | [Add a custom agent](https://michelhelsdingen.github.io/ensemble/configuration#adding-a-custom-agent) |
-
-### Using a different team composition
-
-Three ways to change which agents are on your team:
-
-**1. Name them in your `/collab` prompt:**
-```
-/collab "Review the auth module with gemini and claude"
-```
-
-**2. Use the `--agents` flag with `collab-launch.sh`:**
+### Docker
 ```bash
-# First agent = lead, rest = workers
-./scripts/collab-launch.sh "$(pwd)" "Security audit" codex,claude,gemini
+docker compose up --build
+# Serves API + SPA on port 23000
 ```
 
-**3. Specify agents in the API call:**
+### Ubuntu
 ```bash
-curl -X POST http://localhost:23000/api/ensemble/teams \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "my-team",
-    "description": "Security audit",
-    "agents": [
-      { "program": "codex", "role": "lead" },
-      { "program": "claude", "role": "worker" },
-      { "program": "gemini", "role": "worker" }
-    ],
-    "workingDirectory": "'$(pwd)'"
-  }'
+./scripts/install-ubuntu.sh
+npm start  # production mode — single port 23000
 ```
 
-> **Note on Gemini:** Gemini CLI can join teams and send messages, but is experimental. It may stop responding due to free-tier rate limits or internal agent delegation issues in Gemini's TUI. For best results, configure a paid API key via `gemini /auth`.
+### Development
+```bash
+npm run dev          # server + SPA with HMR
+npm run dev:server   # server only
+npm run dev:web      # SPA only
+```
 
-## How It Works
+## API Reference
 
-1. **Create a team** — Define agents and their task via API or CLI
-2. **Agents spawn** — Each agent gets a tmux session with the task prompt
-3. **Communication** — Agents use `team-say`/`team-read` scripts to exchange messages
-4. **Monitor** — Watch the collaboration unfold in real-time via the TUI monitor
-5. **Auto-disband** — When agents signal completion, results are summarized and persisted
-
-## Configuration
-
-Copy `.env.example` to `.env` and adjust as needed. Key variables:
-
-| Variable | Default | Description |
-|---|---|---|
-| `ENSEMBLE_PORT` | `23000` | Server port |
-| `ENSEMBLE_URL` | `http://localhost:23000` | CLI target URL |
-| `ENSEMBLE_DATA_DIR` | `~/.ensemble` | Data directory |
-| `ENSEMBLE_CORS_ORIGIN` | localhost only | Allowed CORS origins |
-
-See [full configuration docs](https://michelhelsdingen.github.io/ensemble/configuration) for all options including Telegram notifications, multi-host setup, and agent customization.
+See [docs/API.md](docs/API.md) for all 16+ endpoints including:
+- Team CRUD, messaging, SSE streaming
+- Session interaction (read output, send input, stream terminal)
+- Agent hot-join, clone/restart, AI summarization
+- Server info and health
 
 ## Documentation
 
-- [Getting Started](https://michelhelsdingen.github.io/ensemble/getting-started) — Prerequisites, install, first team
-- [Configuration](https://michelhelsdingen.github.io/ensemble/configuration) — Environment variables, agents, hosts
-- [API Reference](https://michelhelsdingen.github.io/ensemble/api) — All HTTP endpoints
-- [CLI Reference](https://michelhelsdingen.github.io/ensemble/cli) — Commands and monitor keybindings
-- [Collab Scripts](https://michelhelsdingen.github.io/ensemble/collab-scripts) — Shell scripts for automation
-- [Architecture](https://michelhelsdingen.github.io/ensemble/architecture) — How it all fits together
+- [API Reference](docs/API.md) — All HTTP endpoints with curl examples
+- [Architecture](docs/ARCHITECTURE.md) — System diagrams, data flows, state machine
+- [Setup Guide](docs/SETUP.md) — Dev, production, Docker, env vars, MCP, troubleshooting
 
 ## License
 
