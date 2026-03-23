@@ -435,8 +435,8 @@ export function Monitor({ team, messages, connected, error, onSend, onDisband, o
             </div>
           )}
 
-          {/* Result summary */}
-          {team.result && (
+          {/* Result summary — only show when there's actual content */}
+          {team.result && (team.result.summary || team.result.aiSummary) && (
             <div className="mt-2 flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
               <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <FileText className="size-3.5" />

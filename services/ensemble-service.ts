@@ -1298,9 +1298,6 @@ async function generateAutoSummary(teamId: string): Promise<void> {
     `Messages:\n${formattedMessages}`,
   ].join('\n')
 
-  const promptFile = path.join(os.tmpdir(), `ensemble-autosummary-${teamId.slice(0, 8)}.txt`)
-  fs.writeFileSync(promptFile, summaryPrompt)
-
   try {
     const { spawn: spawnChild } = await import('child_process')
     const isWindows = os.platform() === 'win32'
@@ -1345,8 +1342,6 @@ async function generateAutoSummary(teamId: string): Promise<void> {
     }
   } catch (err) {
     console.error(`[Ensemble] Auto-summary generation failed:`, err)
-  } finally {
-    try { fs.unlinkSync(promptFile) } catch { /* ok */ }
   }
 }
 
