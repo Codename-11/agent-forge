@@ -943,6 +943,30 @@ export async function sendTeamMessage(
     }
   }
 
+  // Detect agent completion signal ("Done." from team_done MCP tool)
+  if (sender !== 'ensemble' && sender !== 'user' && /^done\b/i.test(content.trim())) {
+    const agentIdx = team.agents.findIndex(a => a.name === sender ||
+      sender.endsWith(a.name) || sender.endsWith(`-${a.name}`))
+    if (agentIdx >= 0 && team.agents[agentIdx].status === 'active') {
+      team.agents[agentIdx].status = 'done'
+      updateTeam(teamId, { agents: team.agents })
+      console.log(`[Ensemble] Agent ${sender} marked as done`)
+
+      // Check if ALL agents are now done → immediate auto-disband
+      const activeAgents = team.agents.filter(a => a.status === 'active')
+      if (activeAgents.length === 0) {
+        console.log(`[Ensemble] All agents done — auto-disbanding team ${teamId}`)
+        appendMessage(teamId, {
+          id: uuidv4(), teamId, from: 'ensemble', to: 'team',
+          content: 'All agents signaled completion — disbanding team.',
+          type: 'chat', timestamp: new Date().toISOString(),
+        })
+        // Run in background so this message response returns first
+        void writeDisbandSummary(teamId).then(() => disbandTeam(teamId, 'completed'))
+      }
+    }
+  }
+
   // Determine which agents should receive this message in their tmux pane
   const recipients = to === 'team'
     ? team.agents.filter(a => a.status === 'active' && a.name !== sender)
