@@ -1,83 +1,96 @@
-# Ensemble — Release Checklist
+# Ensemble — TODO & Roadmap
 
 ## P0 — Release Blockers
 
 | # | Issue | Location | Status |
 |---|-------|----------|--------|
 | 1 | No LICENSE file | repo root | ⬜ Open |
-| 2 | ~~No README.md~~ | ~~repo root~~ | ✅ Done |
-| 3 | No CI/CD (.github/workflows/) | repo root | ⬜ Open |
-| 4 | Open CORS * + 0.0.0.0 binding | server.ts:15-16, 35-38, 110-112 | ⬜ Open |
-| 5 | No auth/rate limiting on API | server.ts | ⬜ Open |
-| 6 | Hardcoded permissive agent commands (--full-auto, --dangerously-skip-permissions) | agent-spawner.ts:35-39, 58-60 | ⬜ Open |
-| 7 | strict: false in tsconfig | tsconfig.json:7 | ⬜ Open |
-
-## Known Issues / Technical Debt
-
-| # | Issue |
-|---|-------|
-| 1 | No test suite — no test/lint scripts in package.json |
-| 2 | JSONL persistence without file locking — race conditions with multi-process |
-| 3 | ~~Undocumented ai-maestro dependency~~ → renamed to ~/.ensemble |
-| 4 | execAsync with string interpolation — command injection risk in agent-runtime |
-| 5 | Shell script embeds variables in inline Python — ensemble-bridge.sh:33-89 |
-| 6 | Code duplication in cli/monitor.ts:100-133 (apiGet/apiPost + polling) |
-| 7 | No CONTRIBUTING.md |
-| 8 | No .gitignore for generated/temp files |
+| 2 | No CI/CD (.github/workflows/) | repo root | ⬜ Open |
+| 3 | Open CORS * + 0.0.0.0 binding in production | server.ts | ⬜ Open |
+| 4 | No auth on API (needed for remote agent join) | server.ts | ⬜ Open |
+| 5 | Remote permission mode bypass — `spawnRemoteAgent` doesn't forward `permissionMode` | lib/agent-spawner.ts | ⬜ Open |
+| 6 | Windows Codex quoting — `cmd.exe` ignores single quotes in `-c` flags | lib/agent-spawner.ts:70-71 | ⬜ Open |
+| 7 | `strict: false` in tsconfig | tsconfig.json | ⬜ Open |
 
 ## P1 — Planned Features
 
-| # | Feature | Description |
-|---|---------|-------------|
-| 1 | **Remote Agent Join (HTTP)** | Allow external agents to join Ensemble teams via HTTP POST without being locally spawned. Inspired by AgentMeet.net's open-join model. Agents POST to a join endpoint with `agent_id`, `agent_name`, and can send/receive messages via REST. This turns Ensemble from a local dev tool into a platform that any agent can plug into remotely. |
+| # | Feature | Description | Status |
+|---|---------|-------------|--------|
+| 1 | **Remote Agent Join API** | `POST /api/ensemble/teams/:id/join` — register external agents without spawning. Needs auth (API key/token). Enables distributed collabs across machines. | ⬜ Open |
+| 2 | **Discord/OpenClaw Bridge** | Relay Discord messages ↔ ensemble API. Let OpenClaw and other Discord bots join collabs as agents. | ⬜ Open |
+| 3 | **Agent SDK npm package** | Thin npm/Python package wrapping the HTTP API. Makes it trivial for any agent to join a collab. | ⬜ Open |
+| 4 | **Test coverage** | Zero tests for: `buildPermissionFlags`, remote spawn, `writeMcpConfig`, MCP tools, plan detection, `team_done`/`team_ask` flow. | ⬜ Open |
+| 5 | **Settings page subtext** | Add descriptive help text for every settings field (what, when, why, impact). | ⬜ Open |
+| 6 | **"Sessions" → "Team Sessions"** | UI terminology refinement throughout. | ⬜ Open |
 
-## Recently Shipped ✅
+## Known Issues / Technical Debt
 
-- Projects directory scanning + settings layout + SKILL.md
-- Session naming with readable auto-names
-- Launch modal improvements (wider, renamed "Launch Team" → "Launch Session")
-- Reopen disbanded teams with conversation context
-- Auto-summary cleanup
-- README.md
+| # | Issue | Status |
+|---|-------|--------|
+| 1 | JSONL persistence without file locking — race conditions with multi-process | ⬜ Open |
+| 2 | `execAsync` with string interpolation — command injection risk in agent-runtime | ⬜ Open |
+| 3 | Code duplication — `apiGet`/`apiPost` in multiple files | ✅ Fixed (EnsembleClient) |
+| 4 | No CONTRIBUTING.md | ⬜ Open |
+| 5 | No .gitignore for generated/temp files | ⬜ Open |
+| 6 | `buildPermissionFlags` fail-open default — returns empty string for unknown modes | ⬜ Open |
+| 7 | Dead code in summary generation (server.ts promptFile write) | ✅ Fixed |
+| 8 | DEP0190 deprecation warnings from `shell: true` on Node 24 | ⬜ Open |
 
 ## P2 — Nice-to-haves
 
-- API docs (OpenAPI/Swagger)
-- Plugin/extensibility system for custom agent programs
-- Persistent storage beyond JSONL (SQLite etc.)
-- Improve health check endpoint (more diagnostics)
-- Configurable agent timeout/retry
-- Structured logging (not console.log)
+| # | Feature |
+|---|---------|
+| 1 | API docs (OpenAPI/Swagger) |
+| 2 | Plugin/extensibility system for custom agent programs |
+| 3 | Persistent storage beyond JSONL (SQLite) |
+| 4 | Structured logging (not console.log) |
+| 5 | Observability/tracing for agent interactions |
+| 6 | Workflow graphs / DAG support for multi-step tasks |
+| 7 | Checkpointing / state machines (LangGraph-style) |
+| 8 | Shared context variables between agents (Swarm-style) |
 
-## Architecture & Code Quality
+## Recently Shipped ✅
+
+### This session (2026-03-23)
+- Windows support (PtySessionManager, cross-platform .mjs scripts)
+- React SPA (Tailwind 4 + Zustand + Lucide + xterm.js)
+- MCP communication (7 tools: team_say, team_read, team_done, team_plan, team_ask, team_status)
+- WebSocket PTY terminal streaming (replaced flickery SSE polling)
+- Smart agent naming (Claude not Claude-1, Lead badge, roles)
+- Plan detection + Plan tab with interactive checklist
+- Execution chain (Export prompt, Execute plan, Copy JSON)
+- Permission modes (full, plan-only, review, execute)
+- Control surfaces (maxTurns, timeout, nudge, stall per team)
+- Non-blocking team creation, hot-join, clone/restart, reopen
+- Completion confirmation banner + agent question banners
+- AI summary (auto on disband + manual generate)
+- Settings page (server config, watchdog, agents, MCP, system prompt, about)
+- Session naming with readable auto-names
+- MCP install/uninstall helpers + join-from-CLI
+- Projects directory scanning (ENSEMBLE_PROJECTS_DIR)
+- SKILL.md for agent knowledge
+- Docker + docker-compose + Ubuntu install script
+- Comprehensive docs (API.md, ARCHITECTURE.md, SETUP.md)
+
+## Architecture Notes
 
 **Positive:**
-- Clean separation: types/ lib/ services/ cli/ scripts/ — well layered
-- AgentRuntime abstraction is solid
-- sanitizeName input sanitization present
-- TypeScript types well defined
-- MCP-based agent communication is distinctive vs competitors (previously tmux-only, now protocol-level)
+- Clean separation: types/ lib/ services/ cli/ scripts/ web/
+- AgentRuntime abstraction (TmuxRuntime / PtySessionManager)
+- MCP-based agent communication (~100ms vs 3-5s shell)
+- EnsembleClient data layer shared between TUI and SPA
 
 **Feature Gaps vs Competitors (CrewAI/AutoGen/LangGraph/Swarm):**
 - No built-in tool/function calling framework
 - No memory/context sharing between agents
 - No workflow graphs or DAG support
 - No observability/tracing
-- No structured agent-to-agent protocol standard beyond MCP + REST
+- No structured agent-to-agent protocol beyond MCP + REST
 
 ## Decided
 
 - **Repo name:** `ensemble`
-- **GitHub description (SEO):** Multi-agent collaboration engine for real-time team orchestration
-- **README hero tagline:** Multi-agent collaboration engine — AI agents that work as one
-- **License:** MIT (TBD)
+- **License:** MIT (TBD — file not created yet)
 - **Position as:** "experimental developer tool", not "production framework"
-
-## Features to borrow from other frameworks
-
-| From | Feature |
-|------|---------|
-| CrewAI | Role definitions with goals, task decomposition, HITL |
-| LangGraph | Checkpointing, state machines, conditional routing |
-| AutoGen | Structured conversation patterns, sandboxing |
-| Swarm | Handoff pattern, shared context variables, routines |
+- **Primary UI:** React SPA (TUI kept as fallback)
+- **Communication:** MCP default, shell fallback (`ENSEMBLE_COMM_MODE`)
