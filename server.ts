@@ -285,6 +285,22 @@ const server = http.createServer(async (req, res) => {
       return json(res, { status: 'healthy', version: '1.0.0' }, 200, origin)
     }
 
+    // Serve SKILL.md as raw text — agents can read this URL for project knowledge
+    if (path === '/api/agent-forge/skill.md' && method === 'GET') {
+      try {
+        const skillPath = nodePath.join(__dirname, 'SKILL.md')
+        if (fs.existsSync(skillPath)) {
+          const content = fs.readFileSync(skillPath, 'utf-8')
+          const headers = buildCorsHeaders(origin, true) // public, any agent can read
+          headers['Content-Type'] = 'text/markdown; charset=utf-8'
+          res.writeHead(200, headers)
+          res.end(content)
+          return
+        }
+      } catch { /* fall through */ }
+      return json(res, { error: 'SKILL.md not found' }, 404, origin)
+    }
+
     // -----------------------------------------------------------------------
     // Auth endpoints
     // -----------------------------------------------------------------------

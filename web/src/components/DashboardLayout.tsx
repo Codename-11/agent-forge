@@ -18,6 +18,7 @@ const navItems = [
   { path: '/app?new=1', label: 'New Team', emoji: '➕' },
   { path: '/app/history', label: 'History', emoji: '📼' },
   { path: '/lobby', label: 'Lobby', emoji: '🌐' },
+  { path: '/app/docs', label: 'Docs', emoji: '📖' },
   { path: '/app/settings', label: 'Settings', emoji: '⚙️' },
   { path: '/app/deploy', label: 'Deploy', emoji: '🚀' },
 ]

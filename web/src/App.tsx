@@ -13,6 +13,7 @@ import { DeployPage } from './components/DeployPage'
 import { LandingPage } from './components/LandingPage'
 import { SpectatorView } from './components/SpectatorView'
 import { ReplayView } from './components/ReplayView'
+import { DocsPage } from './components/DocsPage'
 import { useEnsemble } from './hooks/useEnsemble'
 
 // Landing page state — fetched from server /api/agent-forge/info
@@ -110,6 +111,15 @@ export function App() {
     )
   }
 
+  // Public docs
+  if (pathname === '/docs') {
+    return (
+      <PublicLayout>
+        <DocsPage isPublic />
+      </PublicLayout>
+    )
+  }
+
   // Public lobby
   if (pathname === '/lobby') {
     return (
@@ -139,6 +149,15 @@ export function App() {
     if (!user) {
       navigate('/login')
       return null
+    }
+
+    // Docs
+    if (pathname === '/app/docs') {
+      return (
+        <DashboardLayout serverOnline={serverOnline} connecting={connecting} user={user} onLogout={logout}>
+          <DocsPage onBack={() => navigate('/app')} />
+        </DashboardLayout>
+      )
     }
 
     // Settings

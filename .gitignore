@@ -26,3 +26,4 @@ Thumbs.db
 
 # JSONL persistence files (local data)
 *.jsonl
+.claude/settings.local.json
