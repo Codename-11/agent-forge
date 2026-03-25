@@ -21,7 +21,6 @@ import { getTeam, updateTeam } from './lib/agent-forge-registry'
 import type { TeamConfig } from './types/agent-forge'
 import { getRuntime } from './lib/agent-runtime'
 import { color, styledHeader, styledLog, styledStatus } from './lib/cli-style'
-import { getSidecarBaseUrl, getSidecarConfig, type DegradedDeployStatus } from './lib/deploy-sidecar'
 import {
   validateSession as validateAuthSession,
   createSession as createAuthSession,
@@ -43,7 +42,43 @@ const PORT = parseInt(process.env.AGENT_FORGE_PORT || '23000', 10)
 const HOST = process.env.AGENT_FORGE_HOST || '127.0.0.1'
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 600
-const DEPLOY_SIDECAR = getSidecarConfig(__dirname)
+
+type DeploySidecarConfig = {
+  port: number
+  serviceName: string
+  url: string
+}
+
+type DegradedDeployStatus = {
+  sidecarAvailable: false
+  runningStatus: 'degraded'
+  commitHash: string | null
+  branch: string | null
+  lastCommitMessage: string | null
+  lastDeployTime: string | null
+  commitsBehind: number
+  upToDate: boolean
+  serviceName: string
+  sidecarVersion: string | null
+  sidecarUrl: string
+  error: string
+}
+
+function getSidecarConfig(): DeploySidecarConfig {
+  const port = parseInt(process.env.DEPLOYER_PORT || '3102', 10)
+  const serviceName = process.env.AGENT_FORGE_DEPLOYER_SERVICE || 'openclaw-agent-forge-deployer'
+  return {
+    port,
+    serviceName,
+    url: `http://127.0.0.1:${port}`,
+  }
+}
+
+function getSidecarBaseUrl(config: DeploySidecarConfig): string {
+  return config.url
+}
+
+const DEPLOY_SIDECAR = getSidecarConfig()
 const DEPLOY_SIDECAR_URL = getSidecarBaseUrl(DEPLOY_SIDECAR)
 const DEFAULT_CORS_ORIGIN_PATTERNS = [
   /^http:\/\/localhost(?::\d+)?$/i,

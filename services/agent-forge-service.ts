@@ -60,6 +60,10 @@ interface CompletionSignal {
 const TELEGRAM_BOT_TOKEN = process.env.AGENT_FORGE_TELEGRAM_BOT_TOKEN || ''
 const TELEGRAM_CHAT_ID = process.env.AGENT_FORGE_TELEGRAM_CHAT_ID || ''
 
+function getAgentSessionName(team: AgentForgeTeam, agent: AgentForgeTeam['agents'][number]): string {
+  return agent.sessionName || `${team.name}-${agent.name}`.replace(/[^a-zA-Z0-9\-_.]/g, '')
+}
+
 class AgentForgeService {
   private readonly disbandingTeams = new Set<string>()
   private readonly idleCheckTimer: NodeJS.Timeout
@@ -681,6 +685,7 @@ async function spawnTeamAgents(team: AgentForgeTeam, request: CreateTeamRequest)
             permissionMode: team.config?.permissionMode,
           })
           agentId = spawned.id
+          team.agents[i].sessionName = spawned.sessionName
         } else {
           const host = getHostById(hostId)
           if (!host) throw new Error(`Unknown host: ${hostId}`)
@@ -758,7 +763,7 @@ async function spawnTeamAgents(team: AgentForgeTeam, request: CreateTeamRequest)
       console.log(`[Agent-Forge] Waiting for all ${activeAgents.length} agents to be ready...`)
       const readyResults = await Promise.all(
         activeAgents.map(agent => {
-          const sessionName = `${team.name}-${agent.name}`
+          const sessionName = getAgentSessionName(team, agent)
           return waitForReady(sessionName, agent.program, agent.hostId).then(ready => ({ agent, sessionName, ready }))
         })
       )
@@ -1007,7 +1012,7 @@ export async function sendTeamMessage(
 
   for (const targetAgent of recipients) {
     try {
-      const sessionName = `${team.name}-${targetAgent.name}`
+      const sessionName = getAgentSessionName(team, targetAgent)
 
       // Skip delivery if the agent's tmux pane no longer exists (agent finished and exited)
       const paneAlive = await runtime.sessionExists(sessionName)
@@ -1069,7 +1074,7 @@ export async function writeDisbandSummary(teamId: string): Promise<void> {
     team.agents
       .filter(a => a.status === 'active')
       .map(async (agent) => {
-        const sessionName = `${team.name}-${agent.name}`
+        const sessionName = getAgentSessionName(team, agent)
         tokenUsageMap[agent.name] = await getAgentTokenUsage(sessionName)
       })
   )
@@ -1130,7 +1135,7 @@ export async function disbandTeam(teamId: string, reason?: 'completed' | 'manual
     team.agents
       .filter(a => a.status === 'active')
       .map(async (agent) => {
-        const sessionName = `${team.name}-${agent.name}`
+        const sessionName = getAgentSessionName(team, agent)
         tokenUsageMap[agent.name] = await getAgentTokenUsage(sessionName)
       })
   )
@@ -1148,7 +1153,7 @@ export async function disbandTeam(teamId: string, reason?: 'completed' | 'manual
           const host = getHostById(agent.hostId)
           if (host && agent.agentId) await killRemoteAgent(host.url, agent.agentId)
         } else {
-          await killLocalAgent(`${team.name}-${agent.name}`)
+          await killLocalAgent(getAgentSessionName(team, agent))
         }
       } catch { /* session may already be gone */ }
     }
@@ -1443,7 +1448,7 @@ export async function reopenTeam(teamId: string): Promise<ServiceResult<{ team: 
     const activeAgents = team.agents.filter(a => a.status === 'active')
 
     for (const agent of activeAgents) {
-      const sessionName = `${team.name}-${agent.name}`
+      const sessionName = getAgentSessionName(team, agent)
       const agentConfig = resolveAgentProgram(agent.program)
 
       // Wait for ready

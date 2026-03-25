@@ -133,6 +133,8 @@ export interface AgentForgeTeamAgent {
   role: string
   hostId: string
   status: 'spawning' | 'active' | 'idle' | 'done' | 'failed'
+  /** Actual tmux/pty session name, persisted so UI and delivery code use the same sanitized name. */
+  sessionName?: string
   worktreePath?: string
   worktreeBranch?: string
   /** Participant origin. Default: 'local' for spawned agents. */

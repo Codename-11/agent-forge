@@ -26,9 +26,9 @@ import { cn } from '../lib/utils'
 // ── Types ──────────────────────────────────────────────────────
 
 interface DeployStatus {
-  commitHash: string
-  branch: string
-  lastCommitMessage: string
+  commitHash: string | null
+  branch: string | null
+  lastCommitMessage: string | null
   lastDeployTime: string | null
   serviceRunning: boolean
   deployerReachable?: boolean
@@ -85,8 +85,8 @@ function relativeTime(dateStr: string | null): string {
   return `${days}d ago`
 }
 
-function shortenHash(hash: string): string {
-  return hash.slice(0, 7)
+function shortenHash(hash: string | null | undefined): string {
+  return hash ? hash.slice(0, 7) : 'unknown'
 }
 
 function formatDuration(ms: number | null): string {
@@ -433,7 +433,7 @@ export function DeployPage({ onBack }: DeployPageProps) {
   // ── Copy commit hash ──────────────────────────────────────
 
   const copyHash = () => {
-    if (!status) return
+    if (!status?.commitHash) return
     navigator.clipboard.writeText(status.commitHash).then(() => {
       setCopiedHash(true)
       showToast('success', 'Commit hash copied')
@@ -640,7 +640,7 @@ export function DeployPage({ onBack }: DeployPageProps) {
                 </span>
                 <div className="flex items-center gap-1.5">
                   <GitBranch className="size-3.5 text-muted-foreground" />
-                  <span className="font-mono text-sm text-foreground">{status.branch}</span>
+                  <span className="font-mono text-sm text-foreground">{status.branch || 'unknown'}</span>
                 </div>
               </div>
 
@@ -650,7 +650,7 @@ export function DeployPage({ onBack }: DeployPageProps) {
                   Last Commit
                 </span>
                 <p className="text-sm text-foreground/80 leading-snug">
-                  {status.lastCommitMessage}
+                  {status.lastCommitMessage || 'Unknown commit'}
                 </p>
               </div>
 

@@ -347,7 +347,7 @@ export function Monitor({ team, messages, connected, error, onSend, onDisband, o
 
           <ul className="flex flex-col gap-2">
             {team.agents.map(agent => {
-              const sessionKey = `${team.name}-${agent.name}`
+              const sessionKey = agent.sessionName || `${team.name}-${agent.name}`.replace(/[^a-zA-Z0-9\-_.]/g, '')
               const isSelected = selectedSession === sessionKey
               const preview = agentPreviews[agent.agentId]
               const isActive = agent.status === 'active'

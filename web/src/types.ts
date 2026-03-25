@@ -154,6 +154,7 @@ export interface AgentForgeTeamAgent {
   role: string
   hostId: string
   status: 'spawning' | 'active' | 'idle' | 'done' | 'failed'
+  sessionName?: string
   worktreePath?: string
   worktreeBranch?: string
   origin?: ParticipantOrigin
