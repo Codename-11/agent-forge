@@ -21,6 +21,7 @@ import { getTeam, updateTeam } from './lib/agent-forge-registry'
 import type { TeamConfig } from './types/agent-forge'
 import { getRuntime } from './lib/agent-runtime'
 import { color, styledHeader, styledLog, styledStatus } from './lib/cli-style'
+import { getSidecarBaseUrl, getSidecarConfig, type DegradedDeployStatus } from './lib/deploy-sidecar'
 import {
   validateSession as validateAuthSession,
   createSession as createAuthSession,
@@ -42,6 +43,8 @@ const PORT = parseInt(process.env.AGENT_FORGE_PORT || '23000', 10)
 const HOST = process.env.AGENT_FORGE_HOST || '127.0.0.1'
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX_REQUESTS = 600
+const DEPLOY_SIDECAR = getSidecarConfig(__dirname)
+const DEPLOY_SIDECAR_URL = getSidecarBaseUrl(DEPLOY_SIDECAR)
 const DEFAULT_CORS_ORIGIN_PATTERNS = [
   /^http:\/\/localhost(?::\d+)?$/i,
   /^http:\/\/127\.0\.0\.1(?::\d+)?$/i,
@@ -93,6 +96,27 @@ function stripSensitiveFields(team: any) {
   }
   if (team.joinToken) delete team.joinToken
   return team
+}
+
+async function proxyDeployJson(pathname: string, init?: RequestInit): Promise<Response> {
+  return await fetch(`${DEPLOY_SIDECAR_URL}${pathname}`, init)
+}
+
+function buildDegradedDeployStatus(error: string): DegradedDeployStatus {
+  return {
+    sidecarAvailable: false,
+    runningStatus: 'degraded',
+    commitHash: null,
+    branch: null,
+    lastCommitMessage: null,
+    lastDeployTime: null,
+    commitsBehind: 0,
+    upToDate: true,
+    serviceName: DEPLOY_SIDECAR.serviceName,
+    sidecarVersion: null,
+    sidecarUrl: DEPLOY_SIDECAR_URL,
+    error,
+  }
 }
 
 // Track active SSE connections for cleanup
@@ -1527,283 +1551,48 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
     // GET /api/agent-forge/deploy/status — current deployment info
     if (routeMatches(path, '/deploy/status') && method === 'GET') {
       if (!requireAdmin(req, res, origin)) return
-
-      const { execSync: execSyncCmd } = await import('child_process')
-      const projectRoot = __dirname
-      const result: Record<string, unknown> = {
-        commitHash: null,
-        commitMessage: null,
-        branch: null,
-        lastDeployTime: null,
-        serviceActive: false,
-        serviceRunning: false,
-        commitsBehind: 0,
-        upToDate: true,
+      try {
+        const sidecarRes = await proxyDeployJson('/status')
+        if (!sidecarRes.ok) throw new Error(`Sidecar returned ${sidecarRes.status}`)
+        const data = await sidecarRes.json()
+        return json(res, data, 200, origin)
+      } catch (err) {
+        return json(res, buildDegradedDeployStatus(err instanceof Error ? err.message : String(err)), 200, origin)
       }
-
-      try {
-        result.commitHash = execSyncCmd('git rev-parse HEAD', { cwd: projectRoot, encoding: 'utf-8' }).trim()
-      } catch { /* git not available */ }
-
-      try {
-        result.commitMessage = execSyncCmd('git log -1 --pretty=%s', { cwd: projectRoot, encoding: 'utf-8' }).trim()
-      } catch { /* ignore */ }
-
-      try {
-        result.branch = execSyncCmd('git branch --show-current', { cwd: projectRoot, encoding: 'utf-8' }).trim()
-      } catch { /* ignore */ }
-
-      // Last deploy time from web/dist/index.html mtime
-      try {
-        const distIndex = nodePath.join(projectRoot, 'web', 'dist', 'index.html')
-        const stat = fs.statSync(distIndex)
-        result.lastDeployTime = stat.mtime.toISOString()
-      } catch { /* dist not built yet */ }
-
-      // Service status (Linux only)
-      try {
-        const status = execSyncCmd('systemctl --user is-active openclaw-agent-forge', { cwd: projectRoot, encoding: 'utf-8' }).trim()
-        const isRunning = status === 'active'
-        result.serviceActive = isRunning
-        result.serviceRunning = isRunning
-      } catch {
-        result.serviceActive = false
-        result.serviceRunning = false
-      }
-
-      // Commits behind origin/main
-      try {
-        // Check if origin/main ref exists
-        execSyncCmd('git rev-parse --verify origin/main', { cwd: projectRoot, encoding: 'utf-8', stdio: 'pipe' })
-        const behindOutput = execSyncCmd('git rev-list --count HEAD..origin/main', { cwd: projectRoot, encoding: 'utf-8' }).trim()
-        const behind = parseInt(behindOutput, 10) || 0
-        result.commitsBehind = behind
-        result.upToDate = behind === 0
-      } catch { /* origin/main not available */ }
-
-      return json(res, result, 200, origin)
     }
 
     // POST /api/agent-forge/deploy/check — fetch and return diff info
     if (routeMatches(path, '/deploy/check') && method === 'POST') {
       if (!requireAdmin(req, res, origin)) return
-
-      const { execSync: execSyncCmd } = await import('child_process')
-      const projectRoot = __dirname
-
       try {
-        execSyncCmd('git fetch origin main', { cwd: projectRoot, encoding: 'utf-8', stdio: 'pipe' })
+        const sidecarRes = await proxyDeployJson('/check', { method: 'POST' })
+        if (!sidecarRes.ok) throw new Error(`Sidecar returned ${sidecarRes.status}`)
+        const data = await sidecarRes.json()
+        return json(res, data, 200, origin)
       } catch (err) {
-        return json(res, { error: 'Failed to fetch from origin: ' + (err instanceof Error ? err.message : String(err)) }, 500, origin)
+        return json(res, { error: 'Sidecar unavailable or failed: ' + (err instanceof Error ? err.message : String(err)) }, 500, origin)
       }
-
-      let commitsBehind = 0
-      const commits: Array<{ hash: string; message: string; author: string; date: string }> = []
-      let filesChanged: string[] = []
-
-      try {
-        const behindOutput = execSyncCmd('git rev-list --count HEAD..origin/main', { cwd: projectRoot, encoding: 'utf-8' }).trim()
-        commitsBehind = parseInt(behindOutput, 10) || 0
-      } catch { /* ignore */ }
-
-      try {
-        const logOutput = execSyncCmd('git log --format=%H%n%s%n%an%n%aI HEAD..origin/main', { cwd: projectRoot, encoding: 'utf-8' }).trim()
-        if (logOutput) {
-          const lines = logOutput.split('\n')
-          for (let i = 0; i + 3 < lines.length; i += 4) {
-            commits.push({
-              hash: lines[i],
-              message: lines[i + 1],
-              author: lines[i + 2],
-              date: lines[i + 3],
-            })
-          }
-        }
-      } catch { /* ignore */ }
-
-      try {
-        const diffOutput = execSyncCmd('git diff --name-only HEAD..origin/main', { cwd: projectRoot, encoding: 'utf-8' }).trim()
-        if (diffOutput) {
-          filesChanged = diffOutput.split('\n').filter(Boolean)
-        }
-      } catch { /* ignore */ }
-
-      return json(res, {
-        commitsBehind,
-        commits,
-        filesChanged,
-        upToDate: commitsBehind === 0,
-      }, 200, origin)
     }
 
     // GET /api/agent-forge/deploy/run — execute full deploy with SSE streaming
-    // Uses GET so EventSource can connect directly from the browser
     if (routeMatches(path, '/deploy/run') && (method === 'GET' || method === 'POST')) {
       if (!requireAdmin(req, res, origin)) return
-
-      const { spawn: spawnDeploy } = await import('child_process')
-      const projectRoot = __dirname
-      const webDir = nodePath.join(projectRoot, 'web')
-      const isWindows = os.platform() === 'win32'
-
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
         ...buildCorsHeaders(origin),
       })
-
-      const send = (event: string, data: string) => {
-        res.write(`event: ${event}\ndata: ${JSON.stringify({ message: data, timestamp: new Date().toISOString() })}\n\n`)
-      }
-
-      function runDeployCommand(cmd: string, args: string[], cwd: string): Promise<{ code: number; output: string }> {
-        return new Promise((resolve) => {
-          let output = ''
-          const proc = spawnDeploy(cmd, args, { cwd, shell: true })
-          proc.stdout?.on('data', (chunk: Buffer) => {
-            const text = chunk.toString()
-            output += text
-            send('output', text.trim())
-          })
-          proc.stderr?.on('data', (chunk: Buffer) => {
-            const text = chunk.toString()
-            output += text
-            send('output', text.trim())
-          })
-          proc.on('close', (code) => resolve({ code: code ?? 1, output }))
-        })
-      }
-
-      const steps: Array<{ message: string; cmd: string; args: string[]; cwd: string; optional?: boolean }> = [
-        { message: 'Pulling latest changes...', cmd: 'git', args: ['pull', 'origin', 'main'], cwd: projectRoot },
-        { message: 'Installing dependencies...', cmd: 'npm', args: ['install', '--silent'], cwd: projectRoot },
-        { message: 'Installing web dependencies...', cmd: 'npm', args: ['install', '--silent'], cwd: webDir },
-        { message: 'Building web app...', cmd: 'npm', args: ['run', 'build'], cwd: webDir },
-      ]
-
-      // systemctl restart is Linux-only
-      if (!isWindows) {
-        steps.push({
-          message: 'Restarting service...',
-          cmd: 'systemctl',
-          args: ['--user', 'restart', 'openclaw-agent-forge'],
-          cwd: projectRoot,
-          optional: true,
-        })
-      } else {
-        steps.push({
-          message: 'Skipping service restart (Windows)...',
-          cmd: 'echo',
-          args: ['Service restart skipped on Windows'],
-          cwd: projectRoot,
-          optional: true,
-        })
-      }
-
-      // Health check
-      steps.push({
-        message: 'Running health check...',
-        cmd: 'curl',
-        args: ['-s', `http://localhost:${PORT}/api/v1/health`],
-        cwd: projectRoot,
-        optional: true,
-      })
-
-      // --- Deploy history logging helpers ---
-      const { getAgentForgeDataDir: getDataDir } = await import('./lib/agent-forge-paths')
-      const historyPath = nodePath.join(getDataDir(), 'deploy-history.json')
-
-      function readDeployHistory(): Array<Record<string, unknown>> {
-        try {
-          if (fs.existsSync(historyPath)) {
-            return JSON.parse(fs.readFileSync(historyPath, 'utf-8'))
-          }
-        } catch { /* corrupted file */ }
-        return []
-      }
-
-      function writeDeployHistory(entries: Array<Record<string, unknown>>): void {
-        const dir = nodePath.dirname(historyPath)
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-        fs.writeFileSync(historyPath, JSON.stringify(entries, null, 2))
-      }
-
-      // Create deploy history entry
-      const deployId = `deploy-${Date.now()}`
-      const deployStartTime = Date.now()
-      let deployCommitHash = ''
-      let deployCommitMessage = ''
       try {
-        const { execSync: execSyncLog } = await import('child_process')
-        deployCommitHash = execSyncLog('git rev-parse HEAD', { cwd: projectRoot, encoding: 'utf-8' }).trim()
-        deployCommitMessage = execSyncLog('git log -1 --pretty=%s', { cwd: projectRoot, encoding: 'utf-8' }).trim()
-      } catch { /* ignore */ }
-
-      const historyEntry: Record<string, unknown> = {
-        id: deployId,
-        timestamp: new Date().toISOString(),
-        commitHash: deployCommitHash,
-        commitMessage: deployCommitMessage,
-        status: 'running',
-        source: 'manual',
-        duration: null,
-        error: null,
-      }
-
-      // Append running entry
-      const history = readDeployHistory()
-      history.unshift(historyEntry)
-      writeDeployHistory(history.slice(0, 50)) // keep max 50
-
-      for (const step of steps) {
-        send('step', step.message)
-        const result = await runDeployCommand(step.cmd, step.args, step.cwd)
-        if (result.code !== 0 && !step.optional) {
-          send('error', `Step failed: ${step.message}\n${result.output}`)
-          // Update history entry to failed
-          const h = readDeployHistory()
-          const entry = h.find((e) => e.id === deployId)
-          if (entry) {
-            entry.status = 'failed'
-            entry.duration = Date.now() - deployStartTime
-            entry.error = `Step failed: ${step.message}`
-            writeDeployHistory(h)
+        const sidecarRes = await proxyDeployJson('/run', { method: 'POST' })
+        if (sidecarRes.body) {
+          for await (const chunk of sidecarRes.body) {
+            res.write(chunk)
           }
-          res.end()
-          return
         }
-        if (result.code !== 0 && step.optional) {
-          send('warning', `Step had issues but continuing: ${step.message}`)
-        }
+      } catch (err) {
+        res.write(`event: error\ndata: ${JSON.stringify({ message: 'Sidecar unavailable: ' + (err instanceof Error ? err.message : String(err)) })}\n\n`)
       }
-
-      // Update history entry to success
-      try {
-        const { execSync: execSyncPost } = await import('child_process')
-        const newHash = execSyncPost('git rev-parse HEAD', { cwd: projectRoot, encoding: 'utf-8' }).trim()
-        const newMsg = execSyncPost('git log -1 --pretty=%s', { cwd: projectRoot, encoding: 'utf-8' }).trim()
-        const h = readDeployHistory()
-        const entry = h.find((e) => e.id === deployId)
-        if (entry) {
-          entry.status = 'success'
-          entry.duration = Date.now() - deployStartTime
-          entry.commitHash = newHash
-          entry.commitMessage = newMsg
-          writeDeployHistory(h)
-        }
-      } catch {
-        // Best effort - just mark success without updated hash
-        const h = readDeployHistory()
-        const entry = h.find((e) => e.id === deployId)
-        if (entry) {
-          entry.status = 'success'
-          entry.duration = Date.now() - deployStartTime
-          writeDeployHistory(h)
-        }
-      }
-
-      send('done', 'Deploy complete!')
       res.end()
       return
     }
@@ -1811,108 +1600,30 @@ es.onerror = () => { append('[onerror] EventSource connection lost'); };
     // GET /api/agent-forge/deploy/history — past deploy history
     if (routeMatches(path, '/deploy/history') && method === 'GET') {
       if (!requireAdmin(req, res, origin)) return
-
-      const { getAgentForgeDataDir: getDataDirHist } = await import('./lib/agent-forge-paths')
-      const historyFilePath = nodePath.join(getDataDirHist(), 'deploy-history.json')
-
-      let entries: Array<Record<string, unknown>> = []
       try {
-        if (fs.existsSync(historyFilePath)) {
-          entries = JSON.parse(fs.readFileSync(historyFilePath, 'utf-8'))
-        }
-      } catch { /* corrupted or missing */ }
-
-      // Return last 20
-      return json(res, entries.slice(0, 20), 200, origin)
+        const sidecarRes = await proxyDeployJson('/history')
+        if (!sidecarRes.ok) throw new Error(`Sidecar returned ${sidecarRes.status}`)
+        const data = await sidecarRes.json()
+        return json(res, data, 200, origin)
+      } catch (err) {
+        return json(res, [], 200, origin)
+      }
     }
 
     // POST /api/agent-forge/deploy/rollback — rollback to a specific commit
     if (routeMatches(path, '/deploy/rollback') && method === 'POST') {
       if (!requireAdmin(req, res, origin)) return
-
-      const { execSync: execSyncRb } = await import('child_process')
-      const projectRoot = __dirname
-      const webDir = nodePath.join(projectRoot, 'web')
-
-      let body: { commitHash?: string }
       try {
         const raw = await readBody(req)
-        body = JSON.parse(raw)
-      } catch {
-        return json(res, { error: 'Invalid JSON body' }, 400, origin)
-      }
-
-      const commitHash = body.commitHash
-      if (!commitHash || typeof commitHash !== 'string' || !/^[a-f0-9]{6,40}$/i.test(commitHash)) {
-        return json(res, { error: 'Invalid or missing commitHash' }, 400, origin)
-      }
-
-      const rollbackSteps: string[] = []
-      const rollbackStartTime = Date.now()
-
-      try {
-        // 1. Stash local changes
-        rollbackSteps.push('Stashing local changes...')
-        try {
-          execSyncRb('git stash', { cwd: projectRoot, encoding: 'utf-8', stdio: 'pipe' })
-        } catch { /* nothing to stash */ }
-
-        // 2. Checkout target commit
-        rollbackSteps.push(`Checking out ${commitHash.slice(0, 7)}...`)
-        execSyncRb(`git checkout ${commitHash}`, { cwd: projectRoot, encoding: 'utf-8', stdio: 'pipe' })
-
-        // 3. Build web
-        rollbackSteps.push('Building web app...')
-        execSyncRb('npm run build', { cwd: webDir, encoding: 'utf-8', stdio: 'pipe', timeout: 120_000 })
-
-        // 4. Restart service (Linux only)
-        const isWindows = os.platform() === 'win32'
-        if (!isWindows) {
-          rollbackSteps.push('Restarting service...')
-          try {
-            execSyncRb('systemctl --user restart openclaw-agent-forge', { cwd: projectRoot, encoding: 'utf-8', stdio: 'pipe' })
-          } catch { rollbackSteps.push('Service restart skipped (not available)') }
-        } else {
-          rollbackSteps.push('Skipping service restart (Windows)')
-        }
-
-        // Log rollback to deploy history
-        const { getAgentForgeDataDir: getDataDirRb } = await import('./lib/agent-forge-paths')
-        const rbHistoryPath = nodePath.join(getDataDirRb(), 'deploy-history.json')
-        let rbHistory: Array<Record<string, unknown>> = []
-        try {
-          if (fs.existsSync(rbHistoryPath)) {
-            rbHistory = JSON.parse(fs.readFileSync(rbHistoryPath, 'utf-8'))
-          }
-        } catch { /* ignore */ }
-
-        let rbCommitMessage = ''
-        try {
-          rbCommitMessage = execSyncRb('git log -1 --pretty=%s', { cwd: projectRoot, encoding: 'utf-8' }).trim()
-        } catch { /* ignore */ }
-
-        rbHistory.unshift({
-          id: `deploy-${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          commitHash: commitHash,
-          commitMessage: rbCommitMessage,
-          status: 'success',
-          source: 'rollback',
-          duration: Date.now() - rollbackStartTime,
-          error: null,
+        const sidecarRes = await proxyDeployJson('/rollback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: raw,
         })
-
-        const rbDir = nodePath.dirname(rbHistoryPath)
-        if (!fs.existsSync(rbDir)) fs.mkdirSync(rbDir, { recursive: true })
-        fs.writeFileSync(rbHistoryPath, JSON.stringify(rbHistory.slice(0, 50), null, 2))
-
-        return json(res, { success: true, commitHash, steps: rollbackSteps }, 200, origin)
+        const data = await sidecarRes.json()
+        return json(res, data, sidecarRes.ok ? 200 : 500, origin)
       } catch (err) {
-        return json(res, {
-          success: false,
-          error: err instanceof Error ? err.message : String(err),
-          steps: rollbackSteps,
-        }, 500, origin)
+        return json(res, { error: 'Sidecar unavailable: ' + (err instanceof Error ? err.message : String(err)) }, 500, origin)
       }
     }
 

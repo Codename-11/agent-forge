@@ -31,6 +31,9 @@ interface DeployStatus {
   lastCommitMessage: string
   lastDeployTime: string | null
   serviceRunning: boolean
+  deployerReachable?: boolean
+  deploying?: boolean
+  lastStatus?: string
 }
 
 interface UpdateCheckResult {
@@ -163,7 +166,12 @@ export function DeployPage({ onBack }: DeployPageProps) {
     try {
       const res = await fetch('/api/agent-forge/deploy/status')
       if (!res.ok) {
-        setStatusError(`Failed to load deploy status: ${res.status}`)
+        let detail = ''
+        try {
+          const err = await res.json()
+          detail = err?.error ? `: ${err.error}` : ''
+        } catch {}
+        setStatusError(`Failed to load deploy status: ${res.status}${detail}`)
         return
       }
       const data: DeployStatus = await res.json()
@@ -447,10 +455,13 @@ export function DeployPage({ onBack }: DeployPageProps) {
   }
 
   if (statusError || !status) {
+    const sidecarDown = statusError?.toLowerCase().includes('deployer sidecar unreachable')
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3">
+      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
         <AlertCircle className="size-8 text-destructive" />
-        <p className="text-sm text-destructive">{statusError || 'Failed to load deploy status'}</p>
+        <p className="text-sm text-destructive">
+          {sidecarDown ? 'Deploy unavailable — deployer sidecar is unreachable on localhost:3102.' : (statusError || 'Failed to load deploy status')}
+        </p>
         <button
           className="mt-2 rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
           onClick={onBack}
